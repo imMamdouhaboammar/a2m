@@ -55,5 +55,13 @@ jobs:
           test -x apps/desktop/macos/A2M.app/Contents/MacOS/A2MApp
           test -f dist/A2M-macos-arm64.dmg
           codesign --verify --deep --strict apps/desktop/macos/A2M.app
-      # Do not publish this developer-signed DMG as a public release.
-      # Public distribution needs Developer ID signing and notarization.
+      # This is a development artifact only, not a public installer release.
+      # A general-availability macOS installer requires Developer ID signing,
+      # Apple notarization, and clean-machine testing.
+      - name: Upload ad-hoc signed developer DMG
+        uses: actions/upload-artifact@v4
+        with:
+          name: A2M-macos-arm64-developer-preview-UNNOTARIZED
+          path: dist/A2M-macos-arm64.dmg
+          if-no-files-found: error
+          retention-days: 14

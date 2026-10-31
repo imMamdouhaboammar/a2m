@@ -54,6 +54,8 @@ The local MCP gateway does not need an inbound public internet port. `tunnel-cli
 
 Do not download installers from unrelated websites. Until a release is signed with a Developer ID certificate and notarized by Apple, macOS may warn about or block the build. An ad-hoc signature is **not** a notarized public release.
 
+For testers, the [GitHub Actions workflow](https://github.com/imMamdouhaboammar/a2m/actions/workflows/ci.yml) also provides an **unnotarized developer-preview DMG** as a short-lived artifact from the macOS job when CI passes. It is for development evaluation, may require a GitHub sign-in to download, and is **not a general-public installer**. Verify its provenance and do not disable macOS protections to run untrusted downloads.
+
 ### Option B: build from source
 
 ```bash
