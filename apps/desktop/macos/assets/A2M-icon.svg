@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <title>A2M Agent to Machine app icon</title>
+  <rect x="0" y="0" width="1024" height="1024" rx="224" fill="#1A3C2B"/>
+  <rect x="28" y="28" width="968" height="968" rx="205" fill="none" stroke="#9EFFBF" stroke-opacity=".18" stroke-width="3"/>
+  <g transform="translate(196 178) scale(9.85)" stroke-linecap="square" stroke-linejoin="round" stroke-width="5.2" fill="none">
+    <path d="m22 35-8 8a10 10 0 0 0 14 14l12-12a10 10 0 0 0 0-14" stroke="#F7F7F5"/>
+    <path d="m42 29 8-8A10 10 0 0 0 36 7L24 19a10 10 0 0 0 0 14" stroke="#9EFFBF"/>
+  </g>
+</svg>

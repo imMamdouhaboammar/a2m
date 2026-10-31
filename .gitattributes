@@ -1,0 +1,7 @@
+# Keep generated media binary in Git diffs.
+*.pdf binary
+*.png binary
+*.icns binary
+*.dmg binary
+*.jpg binary
+*.jpeg binary

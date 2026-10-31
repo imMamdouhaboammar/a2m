@@ -1,0 +1,59 @@
+name: A2M source CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  engines:
+    name: Build and test engines (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache: false
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Build and run unit tests
+        run: make test
+      - name: Validate JavaScript syntax
+        run: node --check UI/a2m-desktop-v2/app.js
+      - name: Run Go vet
+        run: |
+          cd services/dc-gateway && go vet ./...
+          cd ../dc-doc-service && go vet ./...
+      - name: End-to-end protocol test
+        run: ./tests/e2e_test.sh
+
+  desktop:
+    name: Build native macOS desktop bundle
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache: false
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Build ad-hoc signed desktop and local DMG
+        run: ./scripts/build_desktop.sh
+      - name: Verify local bundle exists
+        run: |
+          test -x apps/desktop/macos/A2M.app/Contents/MacOS/A2MApp
+          test -f dist/A2M-macos-arm64.dmg
+          codesign --verify --deep --strict apps/desktop/macos/A2M.app
+      # Do not publish this developer-signed DMG as a public release.
+      # Public distribution needs Developer ID signing and notarization.

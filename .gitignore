@@ -1,0 +1,30 @@
+target/
+**/target/
+*.sock
+.jspace/
+.DS_Store
+bin/dc-fs-engine
+bin/dc-gateway
+bin/dc-doc-service
+dist/
+.agent/
+.code-review-graph/
+.env
+.env.*
+!.env.example
+
+# Local builds and distribution artifacts (publish signed releases separately)
+/bin/
+/apps/desktop/macos/*.app/
+/apps/desktop/macos/*.app.*/
+*.dmg
+*.pkg
+*.zip
+*.log
+*.tmp
+*.bak
+
+# Local credential material
+*.p12
+*.pfx
+*.pem

@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <meta name="theme-color" content="#F7F7F5">
+  <meta name="description" content="A2M Desktop local machine control and terminal monitoring.">
+  <title>A2M Desktop v2 | Agent to Machine</title>
+  <link rel="stylesheet" href="./styles.css">
+  <script src="./app.js" defer></script>
+</head>
+<body>
+  <svg class="svg-sprite" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V10Z"/><path d="M9 21v-9h6v9"/></symbol>
+    <symbol id="i-terminal" viewBox="0 0 24 24"><rect x="2.5" y="3.5" width="19" height="17" rx="2"/><path d="m7 9 4 3-4 3m6 0h4"/></symbol>
+    <symbol id="i-list" viewBox="0 0 24 24"><path d="M9 6h12M9 12h12M9 18h12M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="12" rx="2"/><path d="M8 10V7a4 4 0 1 1 8 0v3"/></symbol>
+    <symbol id="i-gear" viewBox="0 0 24 24"><path d="M10 2h4l.6 2.4 1.6.7 2.1-1.1 2.8 2.8-1.1 2.1.7 1.6 2.3.5v4l-2.3.6-.7 1.6 1.1 2.1-2.8 2.8-2.1-1.1-1.6.7L14 22h-4l-.6-2.4-1.6-.7-2.1 1.1-2.8-2.8 1.1-2.1-.7-1.6L1 13v-4l2.3-.5.7-1.6-1.1-2.1 2.8-2.8 2.1 1.1 1.6-.7L10 2Z" transform="translate(1 0) scale(.92)"/><circle cx="12" cy="12" r="3"/></symbol>
+    <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></symbol>
+    <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M4 12h15m-6-6 6 6-6 6"/></symbol>
+    <symbol id="i-screen" viewBox="0 0 24 24"><rect x="2.5" y="4" width="19" height="14" rx="1.5"/><path d="M8 22h8m-4-4v4"/></symbol>
+    <symbol id="i-server" viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="8" rx="1.5"/><rect x="4" y="13" width="16" height="8" rx="1.5"/><path d="M8 7h.01M8 17h.01M12 7h5M12 17h5"/></symbol>
+    <symbol id="i-laptop" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="12" rx="1"/><path d="M2 19h20l-2 2H4l-2-2Z"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="13" rx="1"/><path d="M16 8V4a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h3"/></symbol>
+    <symbol id="i-expand" viewBox="0 0 24 24"><path d="M9 3H3v6m12-6h6v6M3 15v6h6m12-6v6h-6"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M5.5 9A7 7 0 0 1 18 6l2 1M4 17l2 1a7 7 0 0 0 12.5-3"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 2 4 5v6c0 5.4 3.5 8.7 8 11 4.5-2.3 8-5.6 8-11V5l-8-3Z"/><path d="m9 12 2 2 4-4"/></symbol>
+    <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5h.01"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m4 12 5 5L20 6"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v12m-5-5 5 5 5-5M4 17v4h16v-4"/></symbol>
+    <symbol id="i-power" viewBox="0 0 24 24"><path d="M12 2v10M5 5a9 9 0 1 0 14 0"/></symbol>
+  </svg>
+
+  <div class="app-frame">
+    <header class="titlebar" aria-label="Application titlebar">
+      <div class="traffic-lights" aria-hidden="true"><span class="light close"></span><span class="light minimize"></span><span class="light maximize"></span></div>
+      <div class="titlebar-title"><span>A2M Desktop</span><span class="titlebar-divider"></span><span class="preview-label" id="app-mode">LOCAL CONTROL</span></div>
+      <div class="titlebar-end"><span class="titlebar-local"><span class="mini-dot"></span><span id="api-connection">Checking gateway</span></span></div>
+    </header>
+
+    <div class="app-body">
+      <aside class="sidebar">
+        <div class="brand" aria-label="A2M Agent to Machine">
+          <svg class="brand-mark" viewBox="0 0 64 64" aria-hidden="true" fill="none"><path d="m22 35-8 8a10 10 0 0 0 14 14l12-12a10 10 0 0 0 0-14" stroke="currentColor" stroke-width="5" stroke-linecap="square"/><path d="m42 29 8-8A10 10 0 0 0 36 7L24 19a10 10 0 0 0 0 14" stroke="currentColor" stroke-width="5" stroke-linecap="square"/></svg>
+          <div class="brand-text"><strong>A2M</strong><span>AGENT TO MACHINE</span></div>
+        </div>
+
+        <nav class="nav" aria-label="Main navigation">
+          <button class="nav-item active" type="button" data-nav="overview" aria-current="page"><svg class="icon"><use href="#i-home"></use></svg><span>Overview</span></button>
+          <button class="nav-item" type="button" data-nav="terminal"><svg class="icon"><use href="#i-terminal"></use></svg><span>Live Terminal</span></button>
+          <button class="nav-item" type="button" data-nav="activity"><svg class="icon"><use href="#i-list"></use></svg><span>Activity</span></button>
+          <button class="nav-item" type="button" data-nav="access"><svg class="icon"><use href="#i-lock"></use></svg><span>Access &amp; Pairing</span></button>
+          <button class="nav-item" type="button" data-nav="settings"><svg class="icon"><use href="#i-gear"></use></svg><span>Settings</span></button>
+        </nav>
+
+        <div class="sidebar-spacer"></div>
+        <div class="sidebar-device">
+          <svg class="icon"><use href="#i-laptop"></use></svg>
+          <div><strong id="sidebar-hostname">This Mac</strong><span id="sidebar-platform">Checking device</span></div>
+          <span class="indicator" id="sidebar-status" title="Gateway state"></span>
+        </div>
+        <div class="sidebar-version">A2M Desktop <span>/ Live control</span></div>
+      </aside>
+
+      <main class="main-content" id="main-content">
+        <!-- Overview -->
+        <section class="view active" id="view-overview" aria-labelledby="overview-title">
+          <div class="page-heading">
+            <div><h1 id="overview-title">Your machine, under your control</h1><p>Decide when AI clients can connect. See what they do.</p></div>
+            <button type="button" class="text-action" data-go="activity">View activity <svg class="icon"><use href="#i-arrow"></use></svg></button>
+          </div>
+
+          <div class="overview-cards">
+            <section class="panel connection-panel" aria-labelledby="connection-heading">
+              <div class="panel-topline"><h2 id="connection-heading">Connection</h2><span class="micro-label">GATEWAY STATUS</span></div>
+              <div class="connection-intro">
+                <div class="connection-state"><span class="indicator status-indicator" id="connection-dot"></span><strong id="connection-text">Checking…</strong></div>
+                <button class="button button-primary" type="button" id="connection-button" disabled>Checking…</button>
+              </div>
+              <p class="device-line"><span id="connection-device">This Mac</span> <span class="inline-separator">·</span> <span id="connection-platform">macOS</span></p>
+              <p class="session-duration">Tunnel daemon uptime <span class="mono" id="connection-duration">--:--:--</span> <span id="tunnel-observation">· Checking MCP activity…</span></p>
+              <div class="topology" role="img" aria-label="AI client connects to local Mac through a relay">
+                <div class="topology-node"><div class="node-icon"><svg class="icon"><use href="#i-screen"></use></svg><span class="node-dot"></span></div><strong>AI CLIENT</strong><span>Not verified</span></div>
+                <div class="topology-line"></div>
+                <div class="topology-node"><div class="node-icon"><svg class="icon"><use href="#i-server"></use></svg><span class="node-dot"></span></div><strong>TUNNEL</strong><span>Checking</span></div>
+                <div class="topology-line"></div>
+                <div class="topology-node"><div class="node-icon"><svg class="icon"><use href="#i-laptop"></use></svg><span class="node-dot"></span></div><strong>THIS MAC</strong><span>Local device</span></div>
+              </div>
+            </section>
+
+            <section class="panel safety-panel" aria-labelledby="safety-heading">
+              <h2 id="safety-heading">Access &amp; safety</h2>
+              <div class="safety-warning"><span class="warning-mark" aria-hidden="true">!</span><div><strong id="auth-summary">Checking authentication</strong><p id="auth-explanation">Waiting for gateway status.</p></div></div>
+              <button class="button button-primary safety-action" type="button" data-go="access">Review access <svg class="icon"><use href="#i-arrow"></use></svg></button>
+              <div class="safety-footnote"><p>Local gateway permissions and remote client pairing are separate states. Verify remote-client access in your tunnel provider.</p></div>
+            </section>
+          </div>
+
+          <section class="operations-panel" aria-labelledby="operations-heading">
+            <div class="operations-heading"><div class="operations-title"><h2 id="operations-heading">Live operations</h2><span><b id="session-count">0</b> observed sessions · <b id="tunnel-calls-count">?</b> tunneled MCP calls</span></div><button class="text-action small" type="button" data-go="terminal"><svg class="icon"><use href="#i-expand"></use></svg> Open full monitor</button></div>
+            <div class="operations-body">
+              <div class="session-list" id="overview-session-list" aria-label="Process sessions"></div>
+              <section class="terminal-pane" aria-label="Terminal output preview"><div class="terminal-topbar"><strong id="overview-terminal-title">Select a session</strong><div class="terminal-tools"><label class="checkbox-label"><input type="checkbox" id="overview-autoscroll" checked> Auto-scroll</label><span class="tool-divider"></span><button type="button" class="terminal-tool" data-copy="overview"><svg class="icon"><use href="#i-copy"></use></svg> Copy output</button></div></div><div class="terminal-output" id="overview-terminal-output" role="log" aria-live="off" tabindex="0"></div></section>
+            </div>
+          </section>
+
+          <div class="service-strip" aria-label="Local service status"><div class="service-item"><span class="indicator"></span><span>MCP Gateway</span><strong id="service-gateway">Checking</strong></div><div class="service-item"><span class="indicator"></span><span>Rust File Engine</span><strong id="service-fs">Unknown</strong></div><div class="service-item"><span class="indicator"></span><span>Document Service</span><strong id="service-docs">Unknown</strong></div><div class="service-last">Updated <span>·</span> <span id="last-updated">--:--</span></div></div>
+        </section>
+
+        <!-- Full terminal -->
+        <section class="view" id="view-terminal" aria-labelledby="terminal-page-title" hidden>
+          <div class="page-heading"><div><div class="eyebrow">OPERATIONS / 01</div><h1 id="terminal-page-title">Live Terminal</h1><p>Monitor AI-invoked processes from the MCP worker and local gateway. Output is captured from when the monitor attaches.</p></div><span class="soft-tag"><span class="indicator" id="stream-indicator"></span> <span id="stream-label">Connecting stream</span></span></div>
+          <section class="operations-panel expanded-operations" aria-label="Full terminal monitor"><div class="operations-heading"><div class="operations-title"><h2>Process sessions</h2><span>Select a session to inspect output</span></div><div class="inline-controls"><button type="button" class="text-action small follow-latest-action" id="follow-latest-button" aria-pressed="true">Following latest</button><label class="checkbox-label dark-text"><input type="checkbox" id="full-autoscroll" checked> Auto-scroll</label><button type="button" class="button button-light" data-copy="full"><svg class="icon"><use href="#i-copy"></use></svg> Copy output</button></div></div><div class="operations-body"><div class="session-list" id="full-session-list"></div><section class="terminal-pane"><div class="terminal-topbar"><strong id="full-terminal-title">Select a session</strong><span class="terminal-demo-label">AI PROCESS OUTPUT</span></div><div class="terminal-output" id="full-terminal-output" role="log" aria-live="off" tabindex="0"></div><div class="terminal-status-bar"><span>Observed MCP worker and gateway output. Common token patterns are masked, but logs can still contain sensitive data. No terminal input is sent.</span><button class="terminal-tool" type="button" data-action="stop-session" id="stop-session" disabled>Stop selected process</button></div></section></div></section>
+        </section>
+
+        <!-- Activity -->
+        <section class="view" id="view-activity" aria-labelledby="activity-title" hidden>
+          <div class="page-heading"><div><div class="eyebrow">ACTIVITY / 02</div><h1 id="activity-title">Activity</h1><p>Recent local observations from the MCP worker, gateway, and tunnel client.</p></div><span class="soft-tag">LIVE OBSERVATIONS</span></div>
+          <section class="panel interior-panel"><div class="section-heading"><h2>Recent events</h2><span class="micro-label">MCP WORKER + GATEWAY + TUNNEL LOGS</span></div><div class="table-wrap"><table class="activity-table"><thead><tr><th>Time</th><th>Client</th><th>Event</th><th>Process</th><th>State</th></tr></thead><tbody id="activity-body"><tr><td colspan="5">No events observed yet.</td></tr></tbody></table></div><div class="section-footnote"><svg class="icon"><use href="#i-info"></use></svg> Tunnel events come from the local tunnel-client operator log, without command payloads or verified client identity. MCP worker output comes from its local session socket after monitor attachment; the exact AI client identity is not exposed. This is not a complete authorization audit.</div></section>
+        </section>
+
+        <!-- Access & pairing -->
+        <section class="view" id="view-access" aria-labelledby="access-title" hidden>
+          <div class="page-heading"><div><div class="eyebrow">SECURITY / 03</div><h1 id="access-title">Access &amp; Pairing</h1><p>Inspect the permissions that the local gateway currently reports.</p></div><span class="soft-tag warning-tag">Connection-specific</span></div>
+          <div class="access-grid"><section class="panel interior-panel"><h2>Authentication</h2><div class="large-warning"><span class="warning-mark">!</span><div><strong id="access-auth">Checking gateway</strong><p id="access-auth-detail">Status not yet available.</p></div></div><button type="button" class="button button-light" data-action="configure-auth" disabled>Configure via gateway</button><p class="helper-text">This app currently displays authentication state; editing credentials is not exposed by the gateway API.</p></section><section class="panel interior-panel"><h2>Paired clients</h2><div class="client-row"><div class="client-glyph">?</div><div><strong>Client inventory unavailable</strong><span>The local gateway does not expose verified paired-client identities.</span></div></div><button class="button button-light full-width" type="button" data-action="pair-device" disabled>Pairing not available in app</button></section></div>
+          <section class="panel interior-panel permission-panel"><div class="section-heading"><h2>Capability boundaries</h2><span class="micro-label">NOT EXPOSED BY STATUS API</span></div><div class="permission-grid"><div><svg class="icon"><use href="#i-terminal"></use></svg><span>Terminal execution</span><strong>Policy not reported</strong></div><div><svg class="icon"><use href="#i-lock"></use></svg><span>File writes</span><strong>Policy not reported</strong></div><div><svg class="icon"><use href="#i-screen"></use></svg><span>Reading files</span><strong>Policy not reported</strong></div></div></section>
+        </section>
+
+        <!-- Settings -->
+        <section class="view" id="view-settings" aria-labelledby="settings-title" hidden>
+          <div class="page-heading"><div><div class="eyebrow">PREFERENCES / 04</div><h1 id="settings-title">Settings</h1><p>Local monitoring preferences and gateway diagnostics.</p></div><span class="soft-tag">THIS WINDOW</span></div>
+          <!-- AI Connection credential setup panel -->
+          <section class="panel interior-panel settings-panel" id="ai-connection-panel">
+            <h2>AI Connection</h2>
+            <p>Status: <span id="credential-status-badge" class="cred-badge">Checking…</span></p>
+            <div id="credential-setup-panel" hidden>
+              <p class="helper-text">To connect via OpenAI's hosted tunnel, enter your <strong>OpenAI Runtime API key</strong>. Stored in your macOS Keychain.</p>
+              <p class="helper-text"><a href="https://platform.openai.com/settings/organization/api-keys" target="_blank" rel="noopener noreferrer">Get an OpenAI Runtime API key ↗</a></p>
+              <div class="credential-input-row">
+                <input type="password" id="cred-api-key-input" class="cred-input" placeholder="sk-runtime-…" autocomplete="off" spellcheck="false" />
+                <button type="button" class="button" id="cred-save-btn">Save to Keychain</button>
+              </div>
+              <div style="margin-top: 1rem; padding: 0.75rem; background: var(--bg-hover, rgba(0,0,0,0.03)); border-radius: 6px; border: 1px dashed var(--border, #d1d5db);">
+                <strong>Don't have an OpenAI API key?</strong>
+                <p class="helper-text" style="margin: 0.35rem 0 0.5rem;">Start the Zero-Config Local Bridge. Uses an in-memory control plane on your Mac with zero credentials required.</p>
+                <button type="button" class="button button-light" id="start-local-bridge-btn">Connect Zero-Config Local Bridge</button>
+              </div>
+            </div>
+            <div class="settings-actions">
+              <button type="button" class="button button-light" id="cred-delete-btn">Remove stored key</button>
+              <span>The key is stored in macOS Keychain under <code>a2m-desktop</code>.</span>
+            </div>
+          </section>
+          <section class="panel interior-panel settings-panel"><h2>Appearance &amp; monitoring</h2><label class="setting-row"><span><strong>Show activity preview</strong><small>Keep the live terminal visible on the Overview screen.</small></span><input type="checkbox" class="switch-input" id="setting-terminal-preview" checked><span class="switch-visual" aria-hidden="true"></span></label><label class="setting-row"><span><strong>Auto-scroll terminal</strong><small>Follow the newest line while a process is active.</small></span><input type="checkbox" class="switch-input" id="setting-autoscroll" checked><span class="switch-visual" aria-hidden="true"></span></label><label class="setting-row"><span><strong>Prompt before disconnecting</strong><small>Confirm when you end remote access.</small></span><input type="checkbox" class="switch-input" id="setting-confirm" checked><span class="switch-visual" aria-hidden="true"></span></label><div class="settings-actions"><button type="button" class="button button-light" data-action="export-diagnostics"><svg class="icon"><use href="#i-download"></use></svg> Export gateway diagnostics</button><span>Preferences apply to this window only.</span></div></section>
+          <section class="panel interior-panel capability-panel" aria-labelledby="capabilities-title">
+            <div class="section-heading"><h2 id="capabilities-title">Capability Bridge</h2><span class="micro-label" id="capability-state">Checking local gateway</span></div>
+            <p class="helper-text">Detected on this Mac is not the same as enabled for AI clients. Counts below come from the current gateway, not sample data.</p>
+            <div class="capability-summary">
+              <div><span>Local Agent Skills</span><strong id="capability-skills">Checking</strong><small>Discoverable; instructions are not executed automatically</small></div>
+              <div><span>Code Review Graph</span><strong id="capability-graph">Checking</strong><small id="capability-graph-note">Checking adapter availability</small></div>
+              <div><span>Other MCP servers</span><strong id="capability-servers-count">Checking</strong><small id="capability-servers-note">Each provider and tool requires local operator approval</small></div>
+            </div>
+            <div class="capability-section"><h3>Local code analysis</h3><p id="capability-workspace">Checking workspace boundary</p></div>
+            <div class="capability-section"><h3>Discovered MCP services <span class="micro-label" id="capability-servers-state">CHECKING</span></h3><div id="capability-server-list" class="capability-server-list">Loading local inventory</div></div>
+            <div class="settings-actions"><button type="button" class="button button-light" id="capability-refresh">Refresh inventory</button><span>Approvals are loaded from the operator-owned local file when the MCP worker starts; this screen does not activate credentials.</span></div>
+          </section>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <dialog id="disconnect-dialog" class="confirm-dialog" aria-labelledby="disconnect-title"><div class="dialog-icon"><svg class="icon"><use href="#i-power"></use></svg></div><h2 id="disconnect-title">Disconnect this machine?</h2><p id="disconnect-description">This ends the tunnel session. If it was started outside A2M, the app will request explicit permission before stopping that exact tunnel process. Active terminal processes may continue.</p><div class="dialog-actions"><button type="button" class="button button-light" id="cancel-disconnect">Cancel</button><button type="button" class="button button-danger-solid" id="confirm-disconnect">Disconnect tunnel</button></div></dialog>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+</body>
+</html>

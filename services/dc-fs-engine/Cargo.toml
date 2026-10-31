@@ -1,0 +1,19 @@
+[package]
+name = "dc-fs-engine"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+tokio = { version = "1.41", features = ["full"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+regex = "1.11"
+walkdir = "2.5"
+ignore = "0.4"
+similar = { version = "2.7", features = ["text", "serde"] }
+strsim = "0.11"
+uuid = { version = "1.11", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+tempfile = "3.14"
+clap = { version = "4.5", features = ["derive"] }
+rusqlite = { version = "0.41.1", features = ["bundled"] }
