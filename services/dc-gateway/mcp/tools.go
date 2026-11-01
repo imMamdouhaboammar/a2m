@@ -10,10 +10,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/imMamdouhaboammar/a2m/services/dc-gateway/auth"
-	"github.com/imMamdouhaboammar/a2m/services/dc-gateway/config"
-	"github.com/imMamdouhaboammar/a2m/services/dc-gateway/ipc"
-	"github.com/imMamdouhaboammar/a2m/services/dc-gateway/process"
+	"github.com/desktop-commander/dc-gateway/auth"
+	"github.com/desktop-commander/dc-gateway/config"
+	"github.com/desktop-commander/dc-gateway/ipc"
+	"github.com/desktop-commander/dc-gateway/process"
 )
 
 type ToolHandler func(args json.RawMessage) (ToolCallResult, error)

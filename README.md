@@ -1,147 +1,194 @@
-# A2M | Agent to Machine
+# Chat On steriod (Desktop Commander Native)
 
-### Your AI client, connected to the tools already on your computer.
+A high-performance, memory-safe, zero-telemetry reimplementation of Desktop Commander MCP built as modular Rust and Go microservices with a native Cocoa macOS desktop application.
 
-![A2M visual onboarding cover](docs/assets/onboarding/00-cover.png)
+## Architecture
 
-**New to A2M?** Start with the [seven-step visual setup guide](docs/ONBOARDING.md). It includes actual, privacy-redacted screenshots of OpenAI Platform, ChatGPT Plugins and A2M Desktop, all supplied as PNG images.
-
-A2M is a local **Model Context Protocol (MCP) bridge**. It lets an MCP-compatible AI client discover and invoke machine-local development capabilities, while you control the connection from a native macOS desktop app.
-
-**A2M is not another AI model or autonomous coding agent.** The AI client decides what to do. A2M provides the MCP interface, runtime, process supervision and local capability boundaries used to carry out approved work.
-
-> **Release status:** Pre-release source build. The first public DMG will be offered after clean-machine installation, signing/notarization and end-to-end verification. Do not assume a build produced on one Mac will work on every Mac.
-
-## What A2M can do
-
-| Capability | What it provides |
-| --- | --- |
-| Files and projects | Native Rust file operations, paginated reads, directory search and targeted edits |
-| Terminal and processes | Commands, long-running sessions, output capture, process monitoring and termination controls |
-| Documents | Go-powered PDF reading and DOCX / XLSX tools |
-| Code understanding | Optional access to a locally installed Code Review Graph MCP, using that tool's actual parser and schema |
-| Installed skills | Discover local skill metadata and read approved `SKILL.md` files. Skills are **not** silently executed |
-| Third-party MCP tools | Discover configured servers and expose only tools explicitly approved for passthrough |
-| Desktop control | Connect / Disconnect, local status, activity and live process monitoring |
-
-The number of visible MCP tools **depends on what is actually installed and permitted**. A list of tools is not proof that every tool can run. Verify a representative invocation from your intended AI client.
-
-## How the private ChatGPT connection works
-
-```mermaid
-flowchart TD
-  A["ChatGPT or supported AI client"] --> B["OpenAI-hosted Secure MCP Tunnel"]
-  B --> C["tunnel-client on your Mac"]
-  C --> D["A2M local MCP gateway"]
-  D --> E["Local tools, services and approved capabilities"]
+```
+                      +---------------------------------------+
+                      |   AI Client (Claude / Cursor / etc.)  |
+                      +-------------------+-------------------+
+                                          | JSON-RPC 2.0 (stdio)
+                                          v
+                      +---------------------------------------+
+                      |   dc-gateway (Go Microservice)       |
+                      |   - MCP JSON-RPC 2.0 Protocol Engine  |
+                      |   - Process & PTY Lifecycle Supervisor|
+                      |   - Memory-Safe Ring Buffer Pagination|
+                      |   - POSIX/Win32 Process Group Control |
+                      +--------+---------------------+--------+
+                               |                     |
+             Unix Domain Socket| (JSON-RPC IPC)      | Local Process Invocation
+                               v                     v
++---------------------------------------+   +---------------------------------------+
+|  dc-fs-engine (Rust Microservice)     |   |  dc-doc-service (Go Microservice)     |
+|  - High-Speed Filesystem Operations   |   |  - Native Excel Reader & Range Editor |
+|  - Multi-threaded Regex Search Engine |   |    (qax-os/excelize v2.11)            |
+|  - Surgical edit_block with           |   |  - Native PDF Text & Metadata Parser  |
+|    Levenshtein Fuzzy Match Fallback   |   |    (zero Chromium/Puppeteer dependency|
+|  - Atomic Write & CRLF/LF Normalizer  |   +---------------------------------------+
+|  - Multi-Language AST Symbol Indexer  |
+|  - Embedded SQLite Knowledge Graph    |
+|  - Impact & Blast Radius Evaluator    |
+|  - Persistent ADR Governance Engine   |
++---------------------------------------+
 ```
 
-The local MCP gateway does not need an inbound public internet port. `tunnel-client` initiates an **outbound HTTPS** connection to OpenAI and forwards the MCP traffic to your local gateway. This is a private OpenAI-hosted relay, not a direct peer-to-peer tunnel. You create the tunnel and supply your own runtime key. See the [official Secure MCP Tunnel guide](https://developers.openai.com/api/docs/guides/secure-mcp-tunnels).
+## Performance & Overhead Comparison (Empirically Measured)
 
-## Requirements
+Tested on macOS Apple Silicon arm64 (see [docs/benchmarks/native-vs-original.md](docs/benchmarks/native-vs-original.md)):
 
-- **macOS 12+ on Apple Silicon** for the current desktop build script. Intel macOS, Windows and Linux desktop releases are not yet validated.
-- For building from source: Xcode Command Line Tools (`swiftc`, `codesign`, `hdiutil`), **Go 1.24+** and a recent stable **Rust/Cargo** toolchain.
-- For a private OpenAI connection: your own OpenAI Platform organization/project, a `tunnel_id`, a restricted runtime API key and permission to add a custom MCP connection to your ChatGPT workspace.
-- The official [`tunnel-client`](https://github.com/openai/tunnel-client), installed on the same Mac and reachable from A2M.
+| Metric | Original Desktop Commander (Node.js/Electron) | Chat On steriod Native (Rust & Go) |
+| --- | --- | --- |
+| Cold Startup Latency | 1,200 ms – 2,500 ms | **55 ms** |
+| Command Roundtrip Latency | 2,050 ms | **6 ms** |
+| Idle Memory Consumption | 85 MB – 140 MB | **10.11 MB** |
+| Desktop App Binary Size | > 150 MB (Electron runtime) | **111 KB** (Native Cocoa Mach-O) |
+| Standalone DMG Installer | > 200 MB | **11 MB** (Self-contained) |
+| Process Tree Termination | Flaky Node signals; zombie leaks | Native OS Process Groups (`killpg`) |
+| Max Output Buffering | Crashes with V8 `RangeError` (>50MB string) | Circular ring buffer with zero-copy eviction |
+| External Telemetry / Quotas | Cloud relay, 10,000 call limit, Paywall | **100% Offline-First. Zero telemetry. Unlimited** |
 
-### Option A: install a published desktop release (when available)
+## Desktop Application (macOS)
 
-1. Open the repository's **Releases** section and download the macOS ARM64 `.dmg` published by the maintainer.
-2. Mount it, move **A2M.app** to **Applications**, and launch A2M Desktop.
-3. Follow [OpenAI tunnel onboarding](docs/ONBOARDING.md), configure credentials through the app setup when available, and select **Connect machine**.
-4. Verify tool discovery and a **safe read-only MCP tool call** from the intended ChatGPT workspace.
+The native desktop application (`ChatOnSteriod.app`) provides a complete graphical interface:
+- **One-Click Connect / Disconnect:** Connects the local machine to the AI assistant using OpenAI's official `tunnel-client` or private SSE transport.
+- **Live Terminal Monitor:** Displays real-time streaming output (`stdout`/`stderr`) of everything the AI runs with search, auto-scroll, ANSI colors, and output export.
+- **Interactive Control:** Allows sending input (`stdin`) to prompts or triggering immediate emergency process termination (`Kill Process`).
+- **System Tray (Menu Bar):** Quick-status indicator and controls in the macOS menu bar.
 
-Do not download installers from unrelated websites. Until a release is signed with a Developer ID certificate and notarized by Apple, macOS may warn about or block the build. An ad-hoc signature is **not** a notarized public release.
+Install via DMG:
+```bash
+open dist/ChatOnSteriod-macos-arm64.dmg
+```
+Or launch directly:
+```bash
+open apps/desktop/macos/ChatOnSteriod.app
+```
 
-For testers, the [GitHub Actions workflow](https://github.com/imMamdouhaboammar/a2m/actions/workflows/ci.yml) also provides an **unnotarized developer-preview DMG** as a short-lived artifact from the macOS job when CI passes. It is for development evaluation, may require a GitHub sign-in to download, and is **not a general-public installer**. Verify its provenance and do not disable macOS protections to run untrusted downloads.
-
-### Option B: build from source
+## Build & Test
 
 ```bash
-git clone https://github.com/imMamdouhaboammar/a2m.git
-cd a2m
-
-# Build the Rust/Go services and local CLI.
+# Build all microservices
 make build
 
-# Build the Cocoa desktop bundle and local macOS DMG.
-./scripts/build_desktop.sh
-
-# Launch the generated app locally.
-open apps/desktop/macos/A2M.app
-```
-
-The build scripts derive their project root from the script location; they should not require the maintainer's filesystem paths. The desktop build currently creates an **ad-hoc signed** local app for development and testing, not a notarized installer.
-
-To verify the engine tests from a clean source checkout:
-
-```bash
+# Run unit tests across Rust and Go test suites
 make test
+
+# Run full end-to-end integration test over stdio
+make e2e
 ```
 
-`make test` builds the required binaries before running the Rust and Go suites. The generated CLI is under `bin/a2m`.
+## Client Configuration
 
-### Configure the OpenAI tunnel
+### Claude Desktop (`claude_desktop_config.json`)
 
-1. Create your own tunnel under [OpenAI Platform / Tunnels](https://platform.openai.com/settings/organization/tunnels). Associate it with the correct Platform organization **and ChatGPT workspace**.
-2. Copy the full tunnel ID that begins with `tunnel_`.
-3. Create an appropriate **runtime** secret key under [OpenAI Platform / API keys](https://platform.openai.com/settings/organization/api-keys). Keep it local and grant only the permissions needed for tunnel use.
-4. At [ChatGPT Plugins](https://chatgpt.com/plugins), choose **Add → Add custom MCP server → Tunnel**, then select or paste your tunnel ID. Configure any additional MCP authentication separately.
-5. In A2M Desktop, provide the local runtime credential in **Settings** if supported by your build. For source/developer setups only, create a private `.env` from `.env.example`:
-
-```dotenv
-TUNNEL_ID=tunnel_REPLACE_WITH_YOURS
-CONTROL_PLANE_API_KEY=sk-REPLACE_WITH_YOURS
-A2M_GATEWAY_PORT=8765
+```json
+{
+  "mcpServers": {
+    "desktop-commander": {
+      "command": "/absolute/path/to/clever-hypatia/bin/desktop-commander"
+    }
+  }
+}
 ```
 
-Do **not** commit the `.env` file. Avoid placing a real key in terminal logs, screenshots, bug reports or chat. The desktop can use the macOS Keychain for the runtime secret.
+### Cursor (`~/.cursor/mcp.json`)
 
-See **[the illustrated seven-step onboarding](docs/ONBOARDING.md)** for the full flow. A source-build example may require the `A2M_IPC_SOCKET` setting; consult your checked-out `.env.example` and allow user-specific paths.
+```json
+{
+  "mcpServers": {
+    "desktop-commander": {
+      "command": "/absolute/path/to/clever-hypatia/bin/desktop-commander"
+    }
+  }
+}
+```
 
-## Confirm that it works
+## Tool Catalog
 
-After pressing **Connect machine**, verify all of the following:
+| Tool | Service | Description |
+| --- | --- | --- |
+| `start_process` | `dc-gateway` | Execute command or launch long-running process with output streaming |
+| `read_process_output` | `dc-gateway` | Read process output buffer with offset, length, and tail pagination |
+| `interact_with_process` | `dc-gateway` | Write to process stdin and wait for prompt response |
+| `kill_process` | `dc-gateway` | Graceful SIGTERM process termination |
+| `force_terminate` | `dc-gateway` | Forceful SIGKILL process tree termination |
+| `list_sessions` | `dc-gateway` | List active and historical process execution sessions |
+| `list_processes` | `dc-gateway` | Host system process snapshot |
+| `read_file` | `dc-fs-engine` | Line-bounded paginated file reader |
+| `read_multiple_files` | `dc-fs-engine` | Batch file reader |
+| `write_file` | `dc-fs-engine` | Atomic file writer with rewrite and append modes |
+| `edit_block` | `dc-fs-engine` | Surgical string replacement with Levenshtein fuzzy match fallback |
+| `create_directory` | `dc-fs-engine` | Recursive directory creation |
+| `list_directory` | `dc-fs-engine` | Bounded directory traversal with metadata |
+| `move_file` | `dc-fs-engine` | Safe file move and rename |
+| `get_file_info` | `dc-fs-engine` | File metadata, permissions, and MIME type |
+| `start_search` | `dc-fs-engine` | Concurrent ripgrep-grade regex search for files or content |
+| `get_more_search_results` | `dc-fs-engine` | Cursor-based search session pagination |
+| `stop_search` | `dc-fs-engine` | Early cancellation of active search session |
+| `list_searches` | `dc-fs-engine` | Registry of active search sessions |
+| `get_config` | `dc-gateway` | Retrieve server configuration |
+| `set_config_value` | `dc-gateway` | Persist server configuration updates |
+| `get_usage_stats` | `dc-gateway` | Operational uptime and tool execution metrics |
+| `get_recent_tool_calls` | `dc-gateway` | Recent tool execution audit ring buffer |
+| `excel_read_sheet` | `dc-doc-service` | Read cell matrix or range from `.xlsx` workbook |
+| `excel_list_sheets` | `dc-doc-service` | List worksheet names in `.xlsx` workbook |
+| `excel_edit_range` | `dc-doc-service` | Modify cells or ranges in `.xlsx` worksheets |
+| `docx_read` | `dc-doc-service` | Extract body text, headers, and footers from `.docx` files |
+| `docx_edit` | `dc-doc-service` | Surgical find-and-replace in `.docx` body, headers, or footers |
+| `pdf_extract_text` | `dc-doc-service` | Native text and metadata extraction from PDF files |
+| `auth_status` | `dc-gateway` | Inspect active MCP authorization status, role, and capabilities |
+| `auth_login` | `dc-gateway` | Authenticate session using security token (`DC_AUTH_TOKEN`) |
+| `index_codebase` | `dc-fs-engine` | Index workspace or directory into the persistent AST knowledge graph |
+| `get_architecture` | `dc-fs-engine` | High-level project architecture, language breakdown, entrypoints, and core symbols |
+| `query_symbols` | `dc-fs-engine` | Search code symbols (functions, structs, classes, interfaces, enums) with sub-millisecond precision |
+| `trace_call_path` | `dc-fs-engine` | Trace call chains and execution paths between source and target symbols |
+| `assess_impact` | `dc-fs-engine` | Evaluate blast radius, callers, and regression risk before modifying code |
+| `manage_adr` | `dc-fs-engine` | Manage Architecture Decision Records (ADRs) to preserve design decisions and governance |
+| `correlate_error` | `dc-gateway` | Correlate compiler errors or test failure stack traces with AST nodes and dependent callers |
 
-1. The local A2M gateway responds on `127.0.0.1:8765`.
-2. `tunnel-client` is **ready and polling**, not just installed.
-3. Your ChatGPT custom MCP connection discovers the available tools.
-4. A harmless read-only MCP call succeeds end to end.
+## Security & Access Control (RBAC)
 
-For a separately managed tunnel-client profile, run:
+Desktop Commander includes a 100% offline-first security gateway with constant-time token verification (`crypto/subtle`) and role-based capability gating:
+
+* **Environment Configuration:**
+  * `DC_AUTH_TOKEN`: Sets the expected pre-shared security token.
+  * `DC_REQUIRE_AUTH=true`: Enforces mandatory authentication for all MCP tool calls.
+  * `DC_AUTH_ROLE`: Sets the access role:
+    * `admin` (default): Unrestricted access to all 31 tools.
+    * `workspace`: Permits all filesystem operations and standard developer commands; blocks destructive administrative tools (`force_terminate`, `set_config_value`).
+    * `read_only`: Prohibits all mutating operations (`write_file`, `edit_block`, `start_process`, `kill_process`); permits only read and search tools.
+
+## Multi-Party Multiplexed Bridge (Human + AI Dual-Terminal)
+
+Desktop Commander natively bridges the AI client and the human operator through zero-overhead local IPC sockets and Server-Sent Events (SSE). While an AI assistant is running tasks, the human developer can observe and interact with live processes from any terminal or browser window:
+
+### 1. Terminal CLI Multi-Party Commands
 
 ```bash
-tunnel-client doctor --profile YOUR_PROFILE --explain
+# List active and recent processes launched by the AI agent
+desktop-commander ps
+
+# Stream real-time colored stdout and stderr from all AI processes
+desktop-commander watch
+
+# Attach directly to a running AI process; watch output and send stdin from your keyboard
+desktop-commander attach <PID>
 ```
 
-If the desktop window is blank, inspect frontend/WebView errors. An online HTTP gateway does not guarantee the native desktop view is healthy. If ChatGPT shows tools but a call fails, check the tunnel-client profile, worker process and permissions.
+### 2. Standing HTTP / SSE Server & Web Dashboard
 
-## Security and privacy
+Launch Desktop Commander as a standing background daemon providing both MCP SSE transport and an interactive browser dashboard:
 
-- The local gateway should bind to loopback by default. Do not make it remotely reachable without explicit authentication and a security review.
-- Keep OpenAI API keys in the macOS Keychain or an untracked private runtime environment, never source control.
-- Local skills and third-party MCPs are **discovered first**, with execution/passthrough subject to specific approval. Discovery alone grants no execution permission.
-- Use dedicated workspaces and least-privilege access when an AI client can run terminal commands and edit files.
-- Do not publish machine logs, tunnel-client profiles, generated app bundles, caches or working copies of private repositories.
-- The OpenAI tunnel is intended for **private MCP connections**. OpenAI does not support public plugin submission through the secure tunnel path. Public distribution of A2M's source/application is separate: every user connects their own private tunnel.
+```bash
+desktop-commander server --port 8765
+```
 
-Report security concerns privately using the instructions in [SECURITY.md](SECURITY.md).
-
-## Architecture and contributor docs
-
-- Native macOS launcher: `apps/desktop/macos/main.swift`
-- Desktop UI: `UI/a2m-desktop-v2/`
-- Go MCP gateway and process/connection management: `services/dc-gateway/`
-- Rust file/search engine: `services/dc-fs-engine/`
-- Go document service: `services/dc-doc-service/`
-- Developer build and release scripts: `build.sh`, `scripts/`
-- Capability model and current limitations: `docs/capability-bridge.md`
-
-Contributions and bug reports: [CONTRIBUTING.md](CONTRIBUTING.md).
-
-## Credit and license
-
-A2M was inspired in part by the workflow of [Desktop Commander MCP](https://github.com/wonderwhy-er/DesktopCommanderMCP). A2M's implementation and product architecture are separate; all applicable third-party copyright notices and dependency licenses must be respected.
-
-The source tree currently includes the **Apache License 2.0**; see [LICENSE](LICENSE). Copyright and attribution remain with their respective authors. The maintained A2M project is led by **Mamdouh Aboammar**.
+* **Live Web Dashboard:** Open `http://127.0.0.1:8765` in your browser to inspect running processes, view real-time log streams, inject terminal input, and terminate tasks.
+* **SSE MCP Transport:** Connect remote or local AI clients via HTTP Server-Sent Events at `http://127.0.0.1:8765/sse` (messages posted to `/message?sessionId=...`).
+* **REST Management API:** Programmatic endpoints for external dashboards and scripts:
+  * `GET /api/sessions`: Returns active process sessions.
+  * `GET /api/stream`: Real-time SSE event stream for stdout/stderr/exits.
+  * `POST /api/stdin`: Send interactive text into a process stdin (`{"pid": 1234, "input": "y\n"}`).
+  * `POST /api/kill`: Send SIGTERM to a running process (`{"pid": 1234}`).

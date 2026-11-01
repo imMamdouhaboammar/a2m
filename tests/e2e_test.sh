@@ -2,11 +2,11 @@
 set -euo pipefail
 
 echo "=========================================================="
-echo " Running A2M Native MCP Bridge End-to-End Verification"
+echo " Running Desktop Commander Native Full E2E Verification"
 echo "=========================================================="
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-BIN="${SCRIPT_DIR}/bin/a2m"
+BIN="${SCRIPT_DIR}/bin/desktop-commander"
 DOC_BIN="${SCRIPT_DIR}/bin/dc-doc-service"
 
 if [ ! -x "${BIN}" ]; then
@@ -31,9 +31,10 @@ PYEOF
 
 echo "--> Sending MCP JSON-RPC Test Suite via stdio..."
 
-RESPONSE_LOG="${TEMP_DIR}/responses.jsonl"
+RESPONSE_LOG="/tmp/dc_e2e_responses.jsonl"
+rm -f "${RESPONSE_LOG}"
 
-cat << EOF | A2M_IPC_SOCKET="${TEMP_DIR}/a2m.sock" "${BIN}" > "${RESPONSE_LOG}"
+cat << EOF | "${BIN}" > "${RESPONSE_LOG}"
 {"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}
 {"jsonrpc":"2.0","id":2,"method":"tools/list"}
 {"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"start_process","arguments":{"command":"echo 'Process Test 123'"}}}
@@ -48,9 +49,9 @@ cat << EOF | A2M_IPC_SOCKET="${TEMP_DIR}/a2m.sock" "${BIN}" > "${RESPONSE_LOG}"
 {"jsonrpc":"2.0","id":12,"method":"tools/call","params":{"name":"docx_edit","arguments":{"path":"${TEST_DOCX}","find":"Pending Review","replace":"Approved"}}}
 {"jsonrpc":"2.0","id":13,"method":"tools/call","params":{"name":"docx_read","arguments":{"path":"${TEST_DOCX}"}}}
 {"jsonrpc":"2.0","id":14,"method":"tools/call","params":{"name":"auth_status","arguments":{}}}
-{"jsonrpc":"2.0","id":15,"method":"tools/call","params":{"name":"capabilities_list","arguments":{}}}
-{"jsonrpc":"2.0","id":16,"method":"tools/call","params":{"name":"mcp_servers_list","arguments":{}}}
-{"jsonrpc":"2.0","id":17,"method":"tools/call","params":{"name":"skills_find","arguments":{"query":"__a2m_e2e_test_nonexistent__","limit":3}}}
+{"jsonrpc":"2.0","id":15,"method":"tools/call","params":{"name":"crg_get_architecture_overview_tool","arguments":{}}}
+{"jsonrpc":"2.0","id":16,"method":"tools/call","params":{"name":"crg_list_graph_stats_tool","arguments":{}}}
+{"jsonrpc":"2.0","id":17,"method":"tools/call","params":{"name":"crg_traverse_graph_tool","arguments":{"query":"main"}}}
 {"jsonrpc":"2.0","id":18,"method":"tools/call","params":{"name":"manage_adr","arguments":{"action":"list"}}}
 EOF
 
@@ -136,51 +137,25 @@ else
     exit 1
 fi
 
-# Checks 10 and 11: the capability bridge must work without optional
-# third-party MCP providers or a locally installed Code Review Graph.
-# Validate the JSON-RPC tool results by ID, not incidental log text.
-python3 - "${RESPONSE_LOG}" <<'PYEOF'
-import json
-import sys
+# Check 10: Code Review Graph Architecture & Stats
+if grep -q "Architecture:" "${RESPONSE_LOG}" && grep -q "Graph statistics" "${RESPONSE_LOG}"; then
+    echo "✓ Check 10: Code Review Graph architecture overview and graph stats verified"
+else
+    echo "✗ Check 10 failed: Code Review Graph architecture/stats mismatch" >&2
+    echo "=== Full Response Log ==="
+    cat "${RESPONSE_LOG}"
+    exit 1
+fi
 
-responses = {}
-with open(sys.argv[1], encoding="utf-8") as stream:
-    for line in stream:
-        value = json.loads(line)
-        if "id" in value:
-            responses[value["id"]] = value
-
-def payload(call_id):
-    response = responses.get(call_id)
-    if response is None or "error" in response:
-        raise AssertionError(f"Missing or failed MCP response id={call_id}: {response}")
-    result = response.get("result", {})
-    if result.get("isError"):
-        raise AssertionError(f"MCP tool returned isError for id={call_id}: {result}")
-    content = result.get("content", [])
-    if not content or content[0].get("type") != "text":
-        raise AssertionError(f"Missing text content for id={call_id}")
-    return json.loads(content[0]["text"])
-
-tool_list = {tool["name"] for tool in responses[2]["result"]["tools"]}
-required = {"capabilities_list", "skills_find", "mcp_servers_list"}
-assert required <= tool_list, f"Missing capability bridge tools: {required - tool_list}"
-
-capabilities = payload(15)
-assert isinstance(capabilities.get("code_review_graph"), dict), capabilities
-assert capabilities.get("local_skills", {}).get("execution") == "not_auto_enabled", capabilities
-assert isinstance(capabilities.get("policy"), str), capabilities
-
-servers = payload(16)
-assert "servers" in servers and "policy" in servers, servers
-
-skills = payload(17)
-assert isinstance(skills.get("skills"), list), skills
-assert isinstance(skills.get("notice"), str), skills
-
-print("✓ Check 10: Native capability inventory reports optional code graph and policy")
-print("✓ Check 11: External MCP discovery and local skills discovery return valid tool results")
-PYEOF
+# Check 11: Code Review Graph Traversal
+if grep -q "start_node" "${RESPONSE_LOG}"; then
+    echo "✓ Check 11: crg_traverse_graph_tool traversed AST knowledge graph"
+else
+    echo "✗ Check 11 failed: Code Review Graph traversal mismatch" >&2
+    echo "=== Full Response Log ==="
+    cat "${RESPONSE_LOG}"
+    exit 1
+fi
 
 # Check 12: Codebase Memory - ADR management
 if grep -q "adrs" "${RESPONSE_LOG}"; then

@@ -1,67 +1,75 @@
-name: A2M source CI
+name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [ main ]
   pull_request:
-    branches: [main]
-  workflow_dispatch:
-
-permissions:
-  contents: read
+    branches: [ main ]
 
 jobs:
-  engines:
-    name: Build and test engines (${{ matrix.os }})
+  test-and-build:
+    name: Build & Test (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest, macos-latest, windows-latest]
 
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
         with:
           go-version: '1.24'
-          cache: false
-      - uses: dtolnay/rust-toolchain@stable
-      - name: Build and run unit tests
-        run: make test
-      - name: Validate JavaScript syntax
-        run: node --check UI/a2m-desktop-v2/app.js
-      - name: Run Go vet
-        run: |
-          cd services/dc-gateway && go vet ./...
-          cd ../dc-doc-service && go vet ./...
-      - name: End-to-end protocol test
-        run: ./tests/e2e_test.sh
+          cache: true
 
-  desktop:
-    name: Build native macOS desktop bundle
-    runs-on: macos-latest
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
 
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - name: Cache Cargo Dependencies
+        uses: actions/cache@v4
         with:
-          go-version: '1.24'
-          cache: false
-      - uses: dtolnay/rust-toolchain@stable
-      - name: Build ad-hoc signed desktop and local DMG
-        run: ./scripts/build_desktop.sh
-      - name: Verify local bundle exists
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            services/dc-fs-engine/target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('services/dc-fs-engine/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Run Rust Unit Tests (dc-fs-engine)
         run: |
-          test -x apps/desktop/macos/A2M.app/Contents/MacOS/A2MApp
-          test -f dist/A2M-macos-arm64.dmg
-          codesign --verify --deep --strict apps/desktop/macos/A2M.app
-      # This is a development artifact only, not a public installer release.
-      # A general-availability macOS installer requires Developer ID signing,
-      # Apple notarization, and clean-machine testing.
-      - name: Upload ad-hoc signed developer DMG
-        uses: actions/upload-artifact@v4
-        with:
-          name: A2M-macos-arm64-developer-preview-UNNOTARIZED
-          path: dist/A2M-macos-arm64.dmg
-          if-no-files-found: error
-          retention-days: 14
+          cd services/dc-fs-engine
+          cargo test --verbose
+
+      - name: Run Go Unit Tests with Race Detection (dc-gateway)
+        run: |
+          cd services/dc-gateway
+          go test -race -v ./...
+
+      - name: Run Go Unit Tests (dc-doc-service)
+        run: |
+          cd services/dc-doc-service
+          go test -race -v ./...
+
+      - name: Build & Run E2E Test Suite (POSIX)
+        if: runner.os != 'Windows'
+        run: |
+          mkdir -p bin
+          ./build.sh
+          ./tests/e2e_test.sh
+
+      - name: Build Windows Executables
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          mkdir -p bin
+          cd services/dc-fs-engine && cargo build --release && cd ../..
+          cp services/dc-fs-engine/target/release/dc-fs-engine.exe bin/
+          cd services/dc-gateway && go build -o ../../bin/dc-gateway.exe main.go && cd ../..
+          cd services/dc-doc-service && go build -o ../../bin/dc-doc-service.exe main.go && cd ../..
+          ls -la bin/

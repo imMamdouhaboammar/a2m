@@ -12,11 +12,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/imMamdouhaboammar/a2m/services/dc-gateway/auth"
-	"github.com/imMamdouhaboammar/a2m/services/dc-gateway/config"
-	"github.com/imMamdouhaboammar/a2m/services/dc-gateway/ipc"
-	"github.com/imMamdouhaboammar/a2m/services/dc-gateway/mcp"
-	"github.com/imMamdouhaboammar/a2m/services/dc-gateway/process"
+	"github.com/desktop-commander/dc-gateway/auth"
+	"github.com/desktop-commander/dc-gateway/config"
+	"github.com/desktop-commander/dc-gateway/ipc"
+	"github.com/desktop-commander/dc-gateway/mcp"
+	"github.com/desktop-commander/dc-gateway/process"
 )
 
 func TestMultiplexHubLifecycleAndWatch(t *testing.T) {

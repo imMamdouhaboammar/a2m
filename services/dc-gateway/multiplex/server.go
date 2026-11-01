@@ -15,9 +15,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/imMamdouhaboammar/a2m/services/dc-gateway/auth"
-	"github.com/imMamdouhaboammar/a2m/services/dc-gateway/mcp"
-	"github.com/imMamdouhaboammar/a2m/services/dc-gateway/process"
+	"github.com/desktop-commander/dc-gateway/auth"
+	"github.com/desktop-commander/dc-gateway/mcp"
+	"github.com/desktop-commander/dc-gateway/process"
 )
 
 type sseSession struct {
@@ -27,29 +27,34 @@ type sseSession struct {
 
 type Server struct {
 	registry    *mcp.Registry
-	supervisor  *process.Supervisor
-	hub         *MultiplexHub
-	worker      *WorkerMonitor
-	authMgr     *auth.Authenticator
-	sessions    map[string]*sseSession
-	tunnelCmd   *exec.Cmd
-	tunnelState string
-	tunnelError string
-	connectedAt time.Time
-	mu          sync.RWMutex
+	supervisor   *process.Supervisor
+	hub          *MultiplexHub
+	worker       *WorkerMonitor
+	authMgr      *auth.Authenticator
+	sessions     map[string]*sseSession
+	tunnelCmd    *exec.Cmd
+	tunnelState  string
+	tunnelError  string
+	connectedAt  time.Time
+	tunnelCmd2   *exec.Cmd
+	tunnelState2 string
+	tunnelError2 string
+	connectedAt2 time.Time
+	mu           sync.RWMutex
 }
 
 func NewServer(registry *mcp.Registry, supervisor *process.Supervisor, hub *MultiplexHub, authMgr *auth.Authenticator) *Server {
 	s := &Server{
-		registry:    registry,
-		supervisor:  supervisor,
-		hub:         hub,
-		authMgr:     authMgr,
-		sessions:    make(map[string]*sseSession),
-		tunnelState: "Disconnected",
+		registry:     registry,
+		supervisor:   supervisor,
+		hub:          hub,
+		authMgr:      authMgr,
+		sessions:     make(map[string]*sseSession),
+		tunnelState:  "Disconnected",
+		tunnelState2: "Disconnected",
 	}
 
-	// Check if a tunnel-client daemon is already active on port 8080
+	// Check if tunnel-client daemons are already active on ports 8080 and 8081
 	go s.probeInitialTunnelState()
 
 	return s
@@ -57,12 +62,21 @@ func NewServer(registry *mcp.Registry, supervisor *process.Supervisor, hub *Mult
 
 func (s *Server) probeInitialTunnelState() {
 	client := http.Client{Timeout: 500 * time.Millisecond}
-	resp, err := client.Get("http://127.0.0.1:8080/readyz")
-	if err == nil && resp.StatusCode == http.StatusOK {
-		_ = resp.Body.Close()
+	resp1, err1 := client.Get("http://127.0.0.1:8080/readyz")
+	if err1 == nil && resp1.StatusCode == http.StatusOK {
+		_ = resp1.Body.Close()
 		s.mu.Lock()
 		s.tunnelState = "Connected"
 		s.connectedAt = time.Now()
+		s.mu.Unlock()
+	}
+
+	resp2, err2 := client.Get("http://127.0.0.1:8081/readyz")
+	if err2 == nil && resp2.StatusCode == http.StatusOK {
+		_ = resp2.Body.Close()
+		s.mu.Lock()
+		s.tunnelState2 = "Connected"
+		s.connectedAt2 = time.Now()
 		s.mu.Unlock()
 	}
 }
@@ -454,8 +468,15 @@ func (s *Server) handleListSessions(w http.ResponseWriter, r *http.Request) {
 }
 
 func isTunnelActive() bool {
+	return isTunnelActivePort(8080)
+}
+
+func isTunnelActivePort(port int) bool {
+	if port <= 0 {
+		port = 8080
+	}
 	client := http.Client{Timeout: 200 * time.Millisecond}
-	resp, err := client.Get("http://127.0.0.1:8080/readyz")
+	resp, err := client.Get(fmt.Sprintf("http://127.0.0.1:%d/readyz", port))
 	if err == nil {
 		_ = resp.Body.Close()
 		return resp.StatusCode == http.StatusOK
@@ -464,12 +485,12 @@ func isTunnelActive() bool {
 }
 
 func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
-	// The active AI MCP worker may belong to tunnel-client rather than this
-	// dashboard process. Report what the daemon actually knows.
-	observed := observeTunnelClient()
+	// Observe both tunnel 1 (port 8080) and tunnel 2 (port 8081)
+	obs1 := observeTunnelClientAt("http://127.0.0.1:8080")
+	obs2 := observeTunnelClientAt("http://127.0.0.1:8081")
 
 	s.mu.Lock()
-	if observed.Ready {
+	if obs1.Ready {
 		s.tunnelState = "Connected"
 		if s.connectedAt.IsZero() {
 			s.connectedAt = time.Now()
@@ -478,22 +499,81 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 		s.tunnelState = "Disconnected"
 		s.connectedAt = time.Time{}
 	}
-	state := s.tunnelState
-	owner := "none"
+
+	if obs2.Ready {
+		s.tunnelState2 = "Connected"
+		if s.connectedAt2.IsZero() {
+			s.connectedAt2 = time.Now()
+		}
+	} else if s.tunnelCmd2 == nil {
+		s.tunnelState2 = "Disconnected"
+		s.connectedAt2 = time.Time{}
+	}
+
+	state1 := s.tunnelState
+	owner1 := "none"
 	if s.tunnelCmd != nil {
-		owner = "gateway"
-	} else if observed.Ready {
-		owner = "external"
+		owner1 = "gateway"
+	} else if obs1.Ready {
+		owner1 = "external"
+	}
+
+	state2 := s.tunnelState2
+	owner2 := "none"
+	if s.tunnelCmd2 != nil {
+		owner2 = "gateway"
+	} else if obs2.Ready {
+		owner2 = "external"
 	}
 	s.mu.Unlock()
 
+	overallState := "Disconnected"
+	if state1 == "Connected" || state2 == "Connected" {
+		overallState = "Connected"
+	} else if state1 == "Connecting" || state2 == "Connecting" {
+		overallState = "Connecting"
+	}
+
+	primaryObs := obs1
+	primaryOwner := owner1
+	if !obs1.Ready && obs2.Ready {
+		primaryObs = obs2
+		primaryOwner = owner2
+	}
+
 	hostname, _ := os.Hostname()
 	status := map[string]interface{}{
-		"connectionState":        state,
-		"tunnelOwner":            owner,
-		"tunnelId":               observed.TunnelID,
-		"connectedDuration":      observed.Uptime,
-		"tunnel":                 observed,
+		"connectionState":        overallState,
+		"tunnelOwner":            primaryOwner,
+		"tunnelId":               primaryObs.TunnelID,
+		"connectedDuration":      primaryObs.Uptime,
+		"tunnel":                 primaryObs,
+		"tunnels": map[string]interface{}{
+			"1": map[string]interface{}{
+				"id":            1,
+				"name":          "Tunnel 1",
+				"profile":       "desktop-commander",
+				"port":          8080,
+				"state":         state1,
+				"ready":         obs1.Ready,
+				"owner":         owner1,
+				"tunnelId":      obs1.TunnelID,
+				"uptimeSeconds": obs1.Uptime,
+				"mcpToolCalls":  obs1.MCPToolCalls,
+			},
+			"2": map[string]interface{}{
+				"id":            2,
+				"name":          "Tunnel 2",
+				"profile":       "desktop-commander-2",
+				"port":          8081,
+				"state":         state2,
+				"ready":         obs2.Ready,
+				"owner":         owner2,
+				"tunnelId":      obs2.TunnelID,
+				"uptimeSeconds": obs2.Uptime,
+				"mcpToolCalls":  obs2.MCPToolCalls,
+			},
+		},
 		"monitoringScope":        "dashboard and observed MCP worker processes; output retained since observer attachment",
 		"workerMonitorConnected": s.worker != nil && s.worker.Connected(),
 		"device": map[string]interface{}{
@@ -516,7 +596,6 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleConnect(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	// ── Binary resolution ─────────────────────────────────────────────────────
 	tunnelBin, err := FindTunnelClientBinary()
 	if err != nil {
 		log.Printf("[Tunnel Manager] tunnel-client binary not found: %v", err)
@@ -527,37 +606,55 @@ func (s *Server) handleConnect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	mode := r.URL.Query().Get("mode")
-	apiKey, credSource, _ := GetControlPlaneAPIKey()
+	tunnelTarget := r.URL.Query().Get("tunnel")
+	if tunnelTarget == "2" {
+		s.connectTunnelSlot(w, r, tunnelBin, 2, "desktop-commander-2", 8081)
+		return
+	}
+	s.connectTunnelSlot(w, r, tunnelBin, 1, "desktop-commander", 8080)
+}
 
-	// If no API key and not explicitly local mode, offer zero-config local bridge
+func (s *Server) connectTunnelSlot(w http.ResponseWriter, r *http.Request, tunnelBin string, tunnelNum int, profile string, port int) {
+	mode := r.URL.Query().Get("mode")
+	apiKey, credSource, _ := GetControlPlaneAPIKeyForTunnel(tunnelNum)
+
 	if apiKey == "" && mode != "local" {
-		log.Printf("[Tunnel Manager] CONFIGURATION_REQUIRED: CONTROL_PLANE_API_KEY not set (source: %s)", credSource)
+		log.Printf("[Tunnel Manager %d] CONFIGURATION_REQUIRED: API key not set (source: %s)", tunnelNum, credSource)
 		_ = json.NewEncoder(w).Encode(map[string]interface{}{
 			"status":               "CONFIGURATION_REQUIRED",
-			"message":              "OpenAI Runtime API key not configured. You can enter an API key in Settings or connect immediately via Zero-Config Local Bridge.",
+			"message":              fmt.Sprintf("API key for Tunnel %d is not configured.", tunnelNum),
 			"helpUrl":              "https://platform.openai.com/settings/organization/api-keys",
-			"localBridgeAvailable": true,
+			"localBridgeAvailable": tunnelNum == 1,
 		})
 		return
 	}
 
 	s.mu.Lock()
-	if isTunnelActive() {
-		s.tunnelState = "Connected"
-		if s.connectedAt.IsZero() {
-			s.connectedAt = time.Now()
+	if isTunnelActivePort(port) {
+		if tunnelNum == 2 {
+			s.tunnelState2 = "Connected"
+			if s.connectedAt2.IsZero() {
+				s.connectedAt2 = time.Now()
+			}
+		} else {
+			s.tunnelState = "Connected"
+			if s.connectedAt.IsZero() {
+				s.connectedAt = time.Now()
+			}
 		}
 		s.mu.Unlock()
-		_ = json.NewEncoder(w).Encode(map[string]string{"status": "already_connected"})
+		_ = json.NewEncoder(w).Encode(map[string]string{"status": "already_connected", "tunnel": strconv.Itoa(tunnelNum)})
 		return
 	}
 
-	s.tunnelState = "Connecting"
-	var cmd *exec.Cmd
+	if tunnelNum == 2 {
+		s.tunnelState2 = "Connecting"
+	} else {
+		s.tunnelState = "Connecting"
+	}
 
-	if mode == "local" || apiKey == "" {
-		// Zero-Config Local In-Memory Control Plane (no external API key required)
+	var cmd *exec.Cmd
+	if (mode == "local" || apiKey == "") && tunnelNum == 1 {
 		mcpBin, err := FindDesktopCommanderBinary()
 		if err != nil {
 			s.tunnelState = "Disconnected"
@@ -569,105 +666,168 @@ func (s *Server) handleConnect(w http.ResponseWriter, r *http.Request) {
 			})
 			return
 		}
-		log.Printf("[Tunnel Manager] Spawning zero-config local in-memory tunnel proxy with mcp: %s", mcpBin)
-		cmd = exec.Command(tunnelBin, "dev", "proxy", "--health-listen-addr", "127.0.0.1:8080", "--mcp-command", mcpBin)
+		log.Printf("[Tunnel Manager 1] Spawning zero-config local in-memory tunnel proxy with mcp: %s", mcpBin)
+		cmd = exec.Command(tunnelBin, "dev", "proxy", "--health-listen-addr", fmt.Sprintf("127.0.0.1:%d", port), "--mcp-command", mcpBin)
 	} else {
-		// External OpenAI Control Plane Tunnel
-		log.Printf("[Tunnel Manager] Spawning tunnel-client with profile desktop-commander")
-		cmd = exec.Command(tunnelBin, "run", "--profile", "desktop-commander")
-		cmd.Env = append(os.Environ(), "CONTROL_PLANE_API_KEY="+apiKey)
+		log.Printf("[Tunnel Manager %d] Spawning tunnel-client with profile %s", tunnelNum, profile)
+		cmd = exec.Command(tunnelBin, "run", "--profile", profile)
+		cmd.Env = append(os.Environ(), "CONTROL_PLANE_API_KEY="+apiKey, fmt.Sprintf("CONTROL_PLANE_API_KEY_%d=%s", tunnelNum, apiKey))
 	}
 
 	if err := cmd.Start(); err != nil {
-		log.Printf("[Tunnel Manager] could not spawn tunnel-client: %v", err)
-		s.tunnelState = "Disconnected"
+		log.Printf("[Tunnel Manager %d] could not spawn tunnel-client: %v", tunnelNum, err)
+		if tunnelNum == 2 {
+			s.tunnelState2 = "Disconnected"
+		} else {
+			s.tunnelState = "Disconnected"
+		}
 		s.mu.Unlock()
 		_ = json.NewEncoder(w).Encode(map[string]string{
 			"status":  "ERROR",
-			"message": fmt.Sprintf("Failed to start tunnel: %v", err),
+			"message": fmt.Sprintf("Failed to start tunnel %d: %v", tunnelNum, err),
 		})
 		return
 	}
-	s.tunnelCmd = cmd
-	go func() {
-		_ = cmd.Wait()
-		s.mu.Lock()
-		s.tunnelState = "Disconnected"
-		s.tunnelCmd = nil
-		s.connectedAt = time.Time{}
-		s.mu.Unlock()
-	}()
+
+	if tunnelNum == 2 {
+		s.tunnelCmd2 = cmd
+		go func() {
+			_ = cmd.Wait()
+			s.mu.Lock()
+			s.tunnelState2 = "Disconnected"
+			s.tunnelCmd2 = nil
+			s.connectedAt2 = time.Time{}
+			s.mu.Unlock()
+		}()
+	} else {
+		s.tunnelCmd = cmd
+		go func() {
+			_ = cmd.Wait()
+			s.mu.Lock()
+			s.tunnelState = "Disconnected"
+			s.tunnelCmd = nil
+			s.connectedAt = time.Time{}
+			s.mu.Unlock()
+		}()
+	}
 	s.mu.Unlock()
 
 	// Wait up to 2.5s for readyz
 	for i := 0; i < 25; i++ {
 		time.Sleep(100 * time.Millisecond)
-		if isTunnelActive() {
+		if isTunnelActivePort(port) {
 			s.mu.Lock()
-			s.tunnelState = "Connected"
-			s.connectedAt = time.Now()
+			if tunnelNum == 2 {
+				s.tunnelState2 = "Connected"
+				s.connectedAt2 = time.Now()
+			} else {
+				s.tunnelState = "Connected"
+				s.connectedAt = time.Now()
+			}
 			s.mu.Unlock()
 			break
 		}
 	}
 
+	obs := observeTunnelClientAt(fmt.Sprintf("http://127.0.0.1:%d", port))
 	s.mu.RLock()
-	finalState := s.tunnelState
+	var finalState string
+	if tunnelNum == 2 {
+		finalState = s.tunnelState2
+	} else {
+		finalState = s.tunnelState
+	}
 	s.mu.RUnlock()
 
 	_ = json.NewEncoder(w).Encode(map[string]string{
 		"status":   finalState,
-		"tunnelId": observeTunnelClient().TunnelID,
+		"tunnelId": obs.TunnelID,
+		"tunnel":   strconv.Itoa(tunnelNum),
 	})
 }
 
 func (s *Server) handleDisconnect(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
+	tunnelTarget := r.URL.Query().Get("tunnel")
+	killAll := r.URL.Query().Get("killAll") == "true"
 
+	if tunnelTarget == "2" {
+		s.disconnectTunnelSlot(w, r, 2, 8081, killAll)
+		return
+	}
+	if tunnelTarget == "1" {
+		s.disconnectTunnelSlot(w, r, 1, 8080, killAll)
+		return
+	}
+	if tunnelTarget == "all" {
+		s.disconnectTunnelSlot(w, r, 1, 8080, killAll)
+		s.disconnectTunnelSlot(w, r, 2, 8081, killAll)
+		return
+	}
+
+	s.disconnectTunnelSlot(w, r, 1, 8080, killAll)
+}
+
+func (s *Server) disconnectTunnelSlot(w http.ResponseWriter, r *http.Request, tunnelNum int, port int, killAll bool) {
 	s.mu.RLock()
-	owned := s.tunnelCmd
+	var owned *exec.Cmd
+	if tunnelNum == 2 {
+		owned = s.tunnelCmd2
+	} else {
+		owned = s.tunnelCmd
+	}
 	s.mu.RUnlock()
-	external := owned == nil && isTunnelActive()
+
+	active := isTunnelActivePort(port)
+	external := owned == nil && active
+
 	// The user must explicitly confirm ending a tunnel started elsewhere.
-	if external && r.URL.Query().Get("killAll") != "true" {
+	if external && !killAll {
 		w.WriteHeader(http.StatusConflict)
 		_ = json.NewEncoder(w).Encode(map[string]string{
 			"status":  "externally_managed",
-			"message": "An external tunnel-client owns this connection. Confirm external disconnect to stop that verified daemon.",
+			"tunnel":  strconv.Itoa(tunnelNum),
+			"message": fmt.Sprintf("An external tunnel-client owns Tunnel %d on port %d. Confirm external disconnect to stop that verified daemon.", tunnelNum, port),
 		})
 		return
 	}
 
 	var err error
 	if external {
-		err = stopExternalTunnelDaemon()
+		err = stopExternalTunnelDaemonOnPort(port)
 	} else if owned != nil && owned.Process != nil {
 		err = owned.Process.Signal(os.Interrupt)
 	}
 	if err != nil {
 		w.WriteHeader(http.StatusBadGateway)
 		_ = json.NewEncoder(w).Encode(map[string]string{
-			"status": "disconnect_failed", "message": err.Error(),
+			"status": "disconnect_failed", "message": err.Error(), "tunnel": strconv.Itoa(tunnelNum),
 		})
 		return
 	}
-	for i := 0; i < 20 && isTunnelActive(); i++ {
+	for i := 0; i < 20 && isTunnelActivePort(port); i++ {
 		time.Sleep(100 * time.Millisecond)
 	}
-	if isTunnelActive() {
+	if isTunnelActivePort(port) {
 		w.WriteHeader(http.StatusConflict)
 		_ = json.NewEncoder(w).Encode(map[string]string{
-			"status": "still_connected", "message": "The tunnel daemon is still ready; disconnect was not confirmed.",
+			"status": "still_connected", "message": fmt.Sprintf("Tunnel %d is still ready; disconnect was not confirmed.", tunnelNum), "tunnel": strconv.Itoa(tunnelNum),
 		})
 		return
 	}
 
 	s.mu.Lock()
-	s.tunnelState = "Disconnected"
-	s.connectedAt = time.Time{}
-	s.tunnelCmd = nil
+	if tunnelNum == 2 {
+		s.tunnelState2 = "Disconnected"
+		s.connectedAt2 = time.Time{}
+		s.tunnelCmd2 = nil
+	} else {
+		s.tunnelState = "Disconnected"
+		s.connectedAt = time.Time{}
+		s.tunnelCmd = nil
+	}
 	s.mu.Unlock()
-	_ = json.NewEncoder(w).Encode(map[string]string{"status": "disconnected"})
+	_ = json.NewEncoder(w).Encode(map[string]string{"status": "disconnected", "tunnel": strconv.Itoa(tunnelNum)})
 }
 
 func (s *Server) handleDiagnostics(w http.ResponseWriter, r *http.Request) {

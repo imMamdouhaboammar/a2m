@@ -21,12 +21,19 @@ func parseListenerPID(output string) (int, error) {
 }
 
 // stopExternalTunnelDaemon targets only the process currently listening on
-// tunnel-client's loopback port and verifies its executable before signalling.
-// Never use broad pkill -f against unrelated command lines.
+// tunnel-client's loopback port (default 8080) and verifies its executable before signalling.
 func stopExternalTunnelDaemon() error {
-	result, err := exec.Command("lsof", "-nP", "-t", "-iTCP:8080", "-sTCP:LISTEN").Output()
+	return stopExternalTunnelDaemonOnPort(8080)
+}
+
+// stopExternalTunnelDaemonOnPort stops the verified tunnel-client on a specific port.
+func stopExternalTunnelDaemonOnPort(port int) error {
+	if port <= 0 {
+		port = 8080
+	}
+	result, err := exec.Command("lsof", "-nP", "-t", fmt.Sprintf("-iTCP:%d", port), "-sTCP:LISTEN").Output()
 	if err != nil {
-		return fmt.Errorf("locate tunnel daemon: %w", err)
+		return fmt.Errorf("locate tunnel daemon on port %d: %w", port, err)
 	}
 	pid, err := parseListenerPID(string(result))
 	if err != nil {
@@ -37,7 +44,7 @@ func stopExternalTunnelDaemon() error {
 	}
 	result, err = exec.Command("ps", "-p", strconv.Itoa(pid), "-o", "comm=").Output()
 	if err != nil || filepath.Base(strings.TrimSpace(string(result))) != "tunnel-client" {
-		return fmt.Errorf("listener PID %d is not a verified tunnel-client; refusing to stop", pid)
+		return fmt.Errorf("listener PID %d on port %d is not a verified tunnel-client; refusing to stop", pid, port)
 	}
 	proc, err := os.FindProcess(pid)
 	if err != nil {

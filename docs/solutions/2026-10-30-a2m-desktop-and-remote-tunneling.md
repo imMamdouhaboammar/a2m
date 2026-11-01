@@ -1,8 +1,8 @@
 # Compound Engineering Solution: A2M Native Desktop & Remote MCP Tunneling Architecture
 
-**Date:** 2026-10-30
-**System:** Agent to Machine (A2M) / Desktop Commander Native
-**Components:** `a2m-gateway` (Go), `a2m-fs` (Rust), `a2m-docs` (Go), `A2M Desktop.app` (Swift Cocoa), `tunnel-client` (Remote Relay)
+**Date:** 2026-10-30  
+**System:** Agent to Machine (A2M) / Desktop Commander Native  
+**Components:** `a2m-gateway` (Go), `a2m-fs` (Rust), `a2m-docs` (Go), `A2M Desktop.app` (Swift Cocoa), `tunnel-client` (Remote Relay)  
 
 ---
 

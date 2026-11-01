@@ -1,0 +1,44 @@
+feature,area,priority,original,clone,notes
+start_process,process,must,yes,yes,Spawn child process with shell and capture streams
+read_process_output,process,must,yes,yes,Paginated output reading with offset and tail support
+interact_with_process,process,must,yes,yes,Write stdin and await prompt or timeout
+kill_process,process,must,yes,yes,Graceful process termination
+force_terminate,process,must,yes,yes,Recursive process tree termination (SIGKILL / taskkill)
+list_sessions,process,must,yes,yes,List active and historical process sessions
+list_processes,process,should,yes,yes,Snapshot of host system running processes
+read_file,filesystem,must,yes,yes,Line-bounded pagination with offset
+read_multiple_files,filesystem,should,yes,yes,Batch file content retrieval
+write_file,filesystem,must,yes,yes,Atomic file write with rewrite/append modes
+edit_block,filesystem,must,yes,yes,Surgical diff editing with Levenshtein fuzzy match fallback
+create_directory,filesystem,must,yes,yes,Recursive directory creation
+list_directory,filesystem,must,yes,yes,Bounded recursive directory listing with metadata
+move_file,filesystem,must,yes,yes,Safe file move and rename
+get_file_info,filesystem,must,yes,yes,File metadata size permissions mtime and MIME
+start_search,search,must,yes,yes,Ripgrep-grade regex file and content search
+get_more_search_results,search,must,yes,yes,Cursor-based search pagination
+stop_search,search,should,yes,yes,Early search cancellation
+list_searches,search,could,yes,yes,Active search session registry
+get_config,config,must,yes,yes,Retrieve active server configuration
+set_config_value,config,must,yes,yes,Update persistent configuration
+get_usage_stats,metrics,could,yes,yes,In-memory operation counters
+get_recent_tool_calls,history,could,yes,yes,Recent tool execution audit trail
+excel_read_sheet,documents,should,yes,yes,Native Excel sheet reading via Go excelize
+excel_edit_range,documents,should,yes,yes,Native Excel cell/range modification
+excel_list_sheets,documents,should,yes,yes,List worksheets in an Excel workbook
+docx_read,documents,should,yes,yes,Native Word docx body header and footer text extraction
+docx_edit,documents,should,yes,yes,Native Word docx body header and footer search and replace
+pdf_extract_text,documents,should,yes,yes,Native PDF text extraction without Chrome/Puppeteer
+auth_status,security,must,no,yes,Inspect MCP authentication status and active role capabilities
+auth_login,security,must,no,yes,Authenticate MCP session with pre-shared security token
+rbac_role_gating,security,must,no,yes,Role-based capability gating (admin workspace read_only)
+multiline_command_security,security,must,no,yes,Newline-aware command tokenizer preventing advisory bypass (Fix FX-04)
+circular_ring_buffer,process,must,no,yes,Zero-copy circular ring buffer preventing V8 string crashes (Fix FX-02)
+offline_first_guarantee,privacy,must,no,yes,100% offline execution with zero external network phone-home (Fix FX-06)
+standalone_binary_runner,packaging,must,no,yes,Native executable with zero Node.js/npm dependencies (Fix FX-03)
+telemetry_tracking,telemetry,skip,yes,no,Banned: invasive tracking removed per user privacy
+ab_testing_framework,telemetry,skip,yes,no,Banned: silent A/B test framework removed
+video_bundle,assets,skip,yes,no,Banned: 52MB video asset removed
+multi_party_cli_ps,multiplex,must,no,yes,Human terminal inspection of live and historical AI process sessions
+multi_party_cli_watch,multiplex,must,no,yes,Human real-time terminal stream watcher for AI stdout and stderr
+multi_party_cli_attach,multiplex,must,no,yes,Bidirectional human terminal attach to live AI process stdin and stdout
+http_sse_server,transport,must,no,yes,Standing HTTP SSE daemon with live web dashboard and REST API

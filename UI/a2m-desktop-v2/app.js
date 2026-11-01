@@ -100,60 +100,98 @@
 
   function setService(id, status) {
     const element = document.getElementById(id);
+    if (!element) return;
     element.textContent = status || "Unknown";
-    const dot = element.closest(".service-item")?.querySelector(".indicator");
-    if (dot) dot.classList.toggle("connected", /^(running|healthy|reachable)$/i.test(status || ""));
+    const isHealthy = /^(running|healthy|reachable)$/i.test(status || "");
+    element.classList.toggle("running", isHealthy);
+    const dot = document.getElementById(`${id}-dot`) || element.closest(".service-chip")?.querySelector(".indicator") || element.closest(".service-item")?.querySelector(".indicator");
+    if (dot) dot.classList.toggle("connected", isHealthy);
   }
 
   function renderConnection() {
     const data = state.status;
-    const raw = String(data?.connectionState || "");
-    const connected = raw.toLowerCase() === "connected";
-    const connecting = state.pendingAction === "connect" || raw.toLowerCase() === "connecting";
-    const disconnecting = state.pendingAction === "disconnect";
     const available = Boolean(data);
-    const label = !available ? "Gateway unavailable" : disconnecting ? "Disconnecting…" : connecting ? "Connecting…" : connected ? "Tunnel daemon ready" : raw || "Disconnected";
-    $("#connection-text").textContent = label;
-    $("#connection-dot").className = `indicator status-indicator ${connected ? "connected" : connecting ? "connecting" : "disconnected"}`;
-    const button = $("#connection-button");
-    button.textContent = !available ? "Gateway unavailable" : disconnecting ? "Disconnecting…" : connecting ? "Connecting…" : connected ? "Disconnect" : "Connect machine";
-    button.className = `button ${connected ? "button-danger" : "button-primary"}`;
-    button.disabled = !available || connecting || disconnecting;
-    $("#connection-duration").textContent = connected ? durationString(data?.tunnel?.uptimeSeconds) : "--:--:--";
+
+    function renderTunnelSlot(slotNum) {
+      const tData = data?.tunnels?.[String(slotNum)] || {};
+      const slotRaw = String(tData?.state || "");
+      const slotReady = Boolean(tData?.ready);
+      const slotConnected = slotReady || slotRaw.toLowerCase() === "connected";
+      const pending = state.pendingTunnelActions?.[slotNum];
+      const slotConnecting = pending === "connect" || slotRaw.toLowerCase() === "connecting";
+      const slotDisconnecting = pending === "disconnect";
+
+      const card = $(`#slot-tunnel-${slotNum}`);
+      const dot = $(`#tunnel-${slotNum}-dot`);
+      const statusText = $(`#tunnel-${slotNum}-status-text`);
+      const slotBtn = $(`#tunnel-${slotNum}-button`);
+      const duration = $(`#tunnel-${slotNum}-duration`);
+      const idEl = $(`#tunnel-${slotNum}-id`);
+
+      if (card) {
+        card.classList.toggle("is-connected", slotConnected);
+      }
+      if (dot) {
+        dot.className = `indicator status-indicator ${slotConnected ? "connected" : slotConnecting ? "connecting" : "disconnected"}`;
+      }
+      if (statusText) {
+        statusText.textContent = !available ? "Offline" : slotDisconnecting ? "Disconnecting…" : slotConnecting ? "Connecting…" : slotConnected ? (tData.owner === "external" ? "Connected (Ext)" : "Connected") : "Disconnected";
+      }
+      if (slotBtn) {
+        slotBtn.textContent = !available ? "Offline" : slotDisconnecting ? "Disconnecting…" : slotConnecting ? "Connecting…" : slotConnected ? "Disconnect" : `Connect T${slotNum}`;
+        slotBtn.className = `button ${slotConnected ? "button-danger" : "button-primary"}`;
+        slotBtn.disabled = !available || slotConnecting || slotDisconnecting;
+      }
+      if (duration) {
+        duration.textContent = slotConnected ? durationString(tData.uptimeSeconds) : "--:--:--";
+      }
+      if (idEl) {
+        if (tData.tunnelId) {
+          idEl.textContent = tData.tunnelId.slice(0, 16) + "…";
+          idEl.title = tData.tunnelId;
+        } else {
+          idEl.textContent = slotNum === 1 ? "tunnel_6ab2…" : "tunnel_6ae6…";
+        }
+      }
+    }
+
+    renderTunnelSlot(1);
+    renderTunnelSlot(2);
+
     const calls = data?.tunnel?.mcpToolCalls;
-    $("#tunnel-calls-count").textContent = Number.isSafeInteger(calls) ? String(calls) : "?";
-    $("#tunnel-observation").textContent = data?.tunnel?.tunnelId
-      ? "· Live tunnel metadata available" : "· Tunnel identity not reported";
-    $("#tunnel-observation").title = data?.tunnel?.tunnelId || "";
+    const callsEl = $("#tunnel-calls-count");
+    if (callsEl) {
+      callsEl.textContent = Number.isSafeInteger(calls) ? String(calls) : "0";
+    }
 
     const device = data?.device || {};
     const hostname = typeof device.hostname === "string" && device.hostname ? device.hostname : "This Mac";
     const platform = typeof device.platform === "string" && device.platform ? device.platform : "Not reported";
-    $("#connection-device").textContent = hostname;
-    $("#connection-platform").textContent = platform;
     $("#sidebar-hostname").textContent = hostname;
     $("#sidebar-platform").textContent = platform;
     $("#sidebar-status").classList.toggle("connected", available);
     $("#api-connection").textContent = available ? "Gateway online" : "Gateway offline";
     $("#last-updated").textContent = available ? timeString(new Date()) : "--:--";
 
-    const topology = document.querySelectorAll(".topology-node");
-    topology[0].lastElementChild.textContent = "Not verified";
-    topology[1].lastElementChild.textContent = connected ? "Local daemon ready" : connecting ? "Starting" : "Inactive";
-    topology[2].lastElementChild.textContent = available ? "Gateway online" : "Unavailable";
-    document.querySelectorAll(".node-dot").forEach((dot, index) =>
-      dot.classList.toggle("is-off", index === 0 || (index === 1 && !connected) || (index === 2 && !available)));
-
     const authEnabled = data?.auth?.enabled === true;
     const authKnown = typeof data?.auth?.enabled === "boolean";
-    const authLabel = !authKnown ? "Authentication status unavailable" : authEnabled ? "Local gateway token enabled" : "Local-only gateway: token disabled";
+    const authLabel = !authKnown ? "Unavailable" : authEnabled ? "Bearer Token Active" : "Local-only: token disabled";
     const authDetail = !authKnown ? "Gateway status is unavailable." : authEnabled
       ? `Gateway role: ${data.auth.role || "not reported"}. This does not verify relay client identity.`
-      : "The HTTP endpoint is bound to this Mac. The tunnel-client manages remote access separately.";
-    $("#auth-summary").textContent = authLabel;
-    $("#auth-explanation").textContent = authDetail;
-    $("#access-auth").textContent = authLabel;
-    $("#access-auth-detail").textContent = authDetail;
+      : "The HTTP endpoint is bound to 127.0.0.1. The tunnel-client manages remote access separately.";
+    const authDot = $("#auth-indicator");
+    if (authDot) {
+      authDot.classList.toggle("connected", authEnabled || authKnown);
+    }
+    const authEl = $("#auth-summary");
+    if (authEl) authEl.textContent = authLabel;
+    const authExpl = $("#auth-explanation");
+    if (authExpl) authExpl.textContent = authDetail;
+    const accessAuth = $("#access-auth");
+    if (accessAuth) accessAuth.textContent = authLabel;
+    const accessAuthDetail = $("#access-auth-detail");
+    if (accessAuthDetail) accessAuthDetail.textContent = authDetail;
+
     setService("service-gateway", available ? "running" : "unavailable");
     setService("service-fs", data?.sidecars?.fsEngine || "Unknown");
     setService("service-docs", data?.sidecars?.docService || "Unknown");
@@ -247,7 +285,20 @@
       button.addEventListener("click", () => selectSession(session.pid, true));
       fragment.append(button);
     }
-    if (!state.sessions.length) fragment.append(makeElement("div", "empty-state", "No process sessions observed yet. AI-invoked commands will appear here while the MCP worker is connected."));
+    if (!state.sessions.length) {
+      const empty = makeElement("div", "session-empty-state");
+      const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      svg.setAttribute("class", "icon session-empty-icon");
+      const use = document.createElementNS("http://www.w3.org/2000/svg", "use");
+      use.setAttribute("href", "#i-terminal");
+      svg.append(use);
+      empty.append(
+        svg,
+        makeElement("strong", "", "No active processes"),
+        makeElement("p", "", "AI-invoked tools will appear here in real time.")
+      );
+      fragment.append(empty);
+    }
     target.replaceChildren(fragment);
   }
 
@@ -257,14 +308,24 @@
     const fragment = document.createDocumentFragment();
     if (state.selectedPid === null) {
       if (state.tunnelEvents.length) {
-        fragment.append(makeElement("div", "log-line muted", "No process selected. Showing tunnel transport events; select a process above to inspect its actual terminal output."));
+        fragment.append(makeElement("div", "log-line muted", "Showing tunnel transport events. Select a process above to inspect its terminal output:"));
         for (const event of state.tunnelEvents.slice(-40)) {
           const row = makeElement("div", "log-line stdout");
           row.append(makeElement("span", "log-time", timeString(event.timestamp)));
           row.append(makeElement("span", "log-text", event.operation));
           fragment.append(row);
         }
-      } else fragment.append(makeElement("div", "log-line muted", "Waiting for process sessions. Historical output from before the monitor connected may be unavailable."));
+      } else {
+        const welcome = makeElement("div", "terminal-welcome");
+        welcome.append(
+          makeElement("div", "log-line command", "A2M Desktop Terminal Monitor — Ready"),
+          makeElement("div", "log-line stdout", "Listening on local loopback for AI agent tool execution:"),
+          makeElement("div", "log-line stdout", "  • Tunnel 1: 127.0.0.1:8080 (Primary)"),
+          makeElement("div", "log-line stdout", "  • Tunnel 2: 127.0.0.1:8081 (Secondary)"),
+          makeElement("div", "log-line muted", "\nAwaiting process execution from connected AI clients...")
+        );
+        fragment.append(welcome);
+      }
     } else if (!lines.length) {
       fragment.append(makeElement("div", "log-line muted", "No captured output for this process yet."));
     } else {
@@ -458,19 +519,56 @@
     }
   }
 
-  function onConnectionButton() {
-    if (!state.status || state.pendingConnection) return;
-    if (String(state.status.connectionState).toLowerCase() === "connected") {
-      const external = state.status.tunnelOwner === "external";
+  function onTunnelButton(slotNum) {
+    if (!state.status) return;
+    const tData = state.status.tunnels?.[String(slotNum)] || {};
+    const connected = Boolean(tData.ready) || String(tData.state).toLowerCase() === "connected";
+    if (connected) {
+      const external = tData.owner === "external";
+      state.disconnectTargetTunnel = slotNum;
       if (external || $("#setting-confirm").checked) {
+        $("#disconnect-title").textContent = `Disconnect Tunnel ${slotNum}?`;
         $("#disconnect-description").textContent = external
-          ? "This tunnel was started outside A2M. Confirming will stop the verified local tunnel-client daemon and disconnect its AI sessions, including this chat. Active terminal processes may continue."
-          : "This ends the tunnel started by A2M. Active terminal processes may continue.";
+          ? `Tunnel ${slotNum} (port ${tData.port || (slotNum === 1 ? 8080 : 8081)}) was started outside A2M. Confirming will stop the verified local daemon and disconnect its AI sessions.`
+          : `This ends Tunnel ${slotNum} started by A2M. Active terminal processes may continue.`;
         if ($("#disconnect-dialog").showModal) $("#disconnect-dialog").showModal();
-        else if (window.confirm($("#disconnect-description").textContent)) void performConnection("disconnect", external);
-      } else void performConnection("disconnect");
+        else if (window.confirm($("#disconnect-description").textContent)) void performTunnelConnection(slotNum, "disconnect", external);
+      } else {
+        void performTunnelConnection(slotNum, "disconnect", false);
+      }
     } else {
-      void performConnection("connect");
+      void performTunnelConnection(slotNum, "connect", false);
+    }
+  }
+
+  async function performTunnelConnection(slotNum, action, confirmedExternal = false) {
+    if (!state.status) return;
+    if (!state.pendingTunnelActions) state.pendingTunnelActions = {};
+    if (state.pendingTunnelActions[slotNum]) return;
+
+    state.pendingTunnelActions[slotNum] = action;
+    renderConnection();
+    try {
+      let endpoint = `/api/${action}?tunnel=${slotNum}`;
+      if (confirmedExternal && action === "disconnect") {
+        endpoint += "&killAll=true";
+      }
+      const response = await api(endpoint, { method: "POST" });
+      if (response.status === "CONFIGURATION_REQUIRED") {
+        if (slotNum === 1 && response.localBridgeAvailable && window.confirm("OpenAI API key is not configured.\n\nWould you like to connect immediately via Zero-Config Local Bridge?\n(No OpenAI API key required)")) {
+          void performTunnelConnection(1, "connect?mode=local", false);
+          return;
+        }
+        showToast(response.message || `Tunnel ${slotNum} key not configured.`);
+        showView("settings");
+      } else {
+        showToast(`Tunnel ${slotNum} ${action}: ${response.status || "accepted"}. Checking state…`);
+      }
+    } catch (error) {
+      showToast(`Tunnel ${slotNum} ${action} error: ${error.message}`);
+    } finally {
+      delete state.pendingTunnelActions[slotNum];
+      await refreshStatus();
     }
   }
 
@@ -593,14 +691,15 @@
         button.addEventListener("click", () => { void stopSelectedProcess(); });
       }
     });
-    $("#connection-button").addEventListener("click", onConnectionButton);
+    $("#tunnel-1-button")?.addEventListener("click", () => onTunnelButton(1));
+    $("#tunnel-2-button")?.addEventListener("click", () => onTunnelButton(2));
     $("#capability-refresh").addEventListener("click", () => { void refreshCapabilities(); });
     // Credential setup buttons (present only when credential-setup-panel is in DOM)
     document.getElementById("cred-save-btn")?.addEventListener("click", () => { void saveCredential(); });
     document.getElementById("cred-delete-btn")?.addEventListener("click", () => { void deleteCredential(); });
     document.getElementById("start-local-bridge-btn")?.addEventListener("click", () => {
       showToast("Starting Zero-Config Local In-Memory Bridge…");
-      void performConnection("connect?mode=local");
+      void performTunnelConnection(1, "connect?mode=local", false);
       showView("overview");
     });
     $("#follow-latest-button").addEventListener("click", () => {
@@ -611,7 +710,9 @@
     $("#cancel-disconnect").addEventListener("click", () => $("#disconnect-dialog").close());
     $("#confirm-disconnect").addEventListener("click", () => {
       $("#disconnect-dialog").close();
-      void performConnection("disconnect", state.status?.tunnelOwner === "external");
+      const target = state.disconnectTargetTunnel || 1;
+      const tData = state.status?.tunnels?.[String(target)] || {};
+      void performTunnelConnection(target, "disconnect", tData.owner === "external");
     });
     $("#disconnect-dialog").addEventListener("click", (event) => {
       if (event.target === $("#disconnect-dialog")) $("#disconnect-dialog").close();

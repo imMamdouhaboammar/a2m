@@ -14,7 +14,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/imMamdouhaboammar/a2m/services/dc-gateway/process"
+	"github.com/desktop-commander/dc-gateway/process"
 )
 
 const (

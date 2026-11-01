@@ -32,22 +32,51 @@ type CredentialStatus struct {
 // 1. Environment variable CONTROL_PLANE_API_KEY
 // 2. macOS Keychain (service "a2m-desktop", account "control-plane-api-key")
 func GetControlPlaneAPIKey() (string, string, error) {
+	return GetControlPlaneAPIKeyForTunnel(1)
+}
+
+// GetControlPlaneAPIKey2 retrieves the credential specifically for tunnel 2.
+func GetControlPlaneAPIKey2() (string, string, error) {
+	return GetControlPlaneAPIKeyForTunnel(2)
+}
+
+// GetControlPlaneAPIKeyForTunnel retrieves credentials for a given tunnel instance.
+func GetControlPlaneAPIKeyForTunnel(tunnelNum int) (string, string, error) {
 	credMu.Lock()
 	defer credMu.Unlock()
 
-	// 1. Check environment variable
-	if envKey := strings.TrimSpace(os.Getenv("CONTROL_PLANE_API_KEY")); envKey != "" {
-		return envKey, "environment", nil
+	keyVar := "CONTROL_PLANE_API_KEY"
+	serviceName := keychainService
+	dotEnvName := ".env"
+	if tunnelNum == 2 {
+		keyVar = "CONTROL_PLANE_API_KEY_2"
+		serviceName = "a2m-desktop-2"
+		dotEnvName = ".env.tunnel2"
+
+		// Also check CONTROL_PLANE_API_KEY_2 in env
+		if envKey := strings.TrimSpace(os.Getenv("CONTROL_PLANE_API_KEY_2")); envKey != "" {
+			return envKey, "environment", nil
+		}
+	} else {
+		// 1. Check environment variable
+		if envKey := strings.TrimSpace(os.Getenv(keyVar)); envKey != "" {
+			return envKey, "environment", nil
+		}
 	}
 
-	// 2. Check local .env file
-	if dotEnvKey := readKeyFromDotEnv(); dotEnvKey != "" {
+	// 2. Check local dotenv file
+	if dotEnvKey := readKeyFromNamedDotEnv(dotEnvName, keyVar); dotEnvKey != "" {
 		return dotEnvKey, "dotenv", nil
+	}
+	if tunnelNum == 2 {
+		if dotEnvKey := readKeyFromNamedDotEnv(".env.tunnel2", "CONTROL_PLANE_API_KEY"); dotEnvKey != "" {
+			return dotEnvKey, "dotenv", nil
+		}
 	}
 
 	// 3. On macOS, query Keychain
 	if runtime.GOOS == "darwin" {
-		cmd := exec.Command("security", "find-generic-password", "-s", keychainService, "-a", keychainAccount, "-w")
+		cmd := exec.Command("security", "find-generic-password", "-s", serviceName, "-a", keychainAccount, "-w")
 		var out bytes.Buffer
 		cmd.Stdout = &out
 		if err := cmd.Run(); err == nil {
@@ -55,6 +84,13 @@ func GetControlPlaneAPIKey() (string, string, error) {
 			if key != "" {
 				return key, "keychain", nil
 			}
+		}
+	}
+
+	// Fallback for tunnel 2 if not configured separately: try primary key
+	if tunnelNum == 2 {
+		if envKey := strings.TrimSpace(os.Getenv("CONTROL_PLANE_API_KEY")); envKey != "" {
+			return envKey, "environment", nil
 		}
 	}
 
@@ -173,13 +209,23 @@ func FindDesktopCommanderBinary() (string, error) {
 }
 
 func readKeyFromDotEnv() string {
-	candidates := []string{".env", "../../.env", "../../../.env"}
-	if configured := strings.TrimSpace(os.Getenv("A2M_ENV_FILE")); configured != "" {
+	return readKeyFromNamedDotEnv(".env", "CONTROL_PLANE_API_KEY")
+}
+
+func readKeyFromNamedDotEnv(filename, keyName string) string {
+	if filename == "" {
+		filename = ".env"
+	}
+	if keyName == "" {
+		keyName = "CONTROL_PLANE_API_KEY"
+	}
+	candidates := []string{filename, "../../" + filename, "../../../" + filename}
+	if configured := strings.TrimSpace(os.Getenv("A2M_ENV_FILE")); configured != "" && filename == ".env" {
 		candidates = append([]string{configured}, candidates...)
 	}
 	if exe, err := os.Executable(); err == nil {
-		candidates = append(candidates, filepath.Join(filepath.Dir(exe), ".env"))
-		candidates = append(candidates, filepath.Join(filepath.Dir(exe), "..", "Resources", ".env"))
+		candidates = append(candidates, filepath.Join(filepath.Dir(exe), filename))
+		candidates = append(candidates, filepath.Join(filepath.Dir(exe), "..", "Resources", filename))
 	}
 	for _, path := range candidates {
 		data, err := os.ReadFile(path)
@@ -193,7 +239,7 @@ func readKeyFromDotEnv() string {
 				continue
 			}
 			parts := strings.SplitN(line, "=", 2)
-			if strings.TrimSpace(parts[0]) == "CONTROL_PLANE_API_KEY" {
+			if strings.TrimSpace(parts[0]) == keyName {
 				val := strings.Trim(strings.TrimSpace(parts[1]), "\"'")
 				if val != "" {
 					return val

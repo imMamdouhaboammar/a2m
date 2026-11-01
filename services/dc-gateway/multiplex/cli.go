@@ -12,7 +12,7 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/imMamdouhaboammar/a2m/services/dc-gateway/process"
+	"github.com/desktop-commander/dc-gateway/process"
 )
 
 func dialControlSocket(socketPath string) (net.Conn, error) {

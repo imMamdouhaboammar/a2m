@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/imMamdouhaboammar/a2m/services/dc-gateway/config"
+	"github.com/desktop-commander/dc-gateway/config"
 )
 
 func TestCapabilityBridgeDiscoveryAndSafeDefaults(t *testing.T) {

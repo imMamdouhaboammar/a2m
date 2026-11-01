@@ -5,10 +5,10 @@ all: build test
 build:
 	./build.sh
 
-test: build
+test:
 	cd services/dc-fs-engine && cargo test
-	cd services/dc-gateway && PATH="$(CURDIR)/bin:$$PATH" go test -v ./...
-	cd services/dc-doc-service && PATH="$(CURDIR)/bin:$$PATH" go test -v ./...
+	cd services/dc-gateway && go test -v ./...
+	cd services/dc-doc-service && go test -v ./...
 
 e2e: build
 	./tests/e2e_test.sh
