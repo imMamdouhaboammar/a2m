@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"encoding/json"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -133,7 +134,15 @@ func TestDocumentToolsExecution(t *testing.T) {
 
 	// Build dc-doc-service binary path for test
 	binDir, _ := filepath.Abs("../../../bin")
-	_ = os.Setenv("PATH", binDir+":"+os.Getenv("PATH"))
+	docServiceBin := filepath.Join(binDir, "dc-doc-service")
+	if _, err := os.Stat(docServiceBin); err != nil {
+		_ = os.MkdirAll(binDir, 0755)
+		srcDir, _ := filepath.Abs("../../dc-doc-service")
+		cmd := exec.Command("go", "build", "-o", docServiceBin, "main.go")
+		cmd.Dir = srcDir
+		_ = cmd.Run()
+	}
+	_ = os.Setenv("PATH", binDir+string(os.PathListSeparator)+os.Getenv("PATH"))
 
 	// 1. Test docx tools
 	docxPath := filepath.Join(tempDir, "test.docx")

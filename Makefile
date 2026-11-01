@@ -5,7 +5,7 @@ all: build test
 build:
 	./build.sh
 
-test:
+test: build
 	cd services/dc-fs-engine && cargo test
 	cd services/dc-gateway && go test -v ./...
 	cd services/dc-doc-service && go test -v ./...
