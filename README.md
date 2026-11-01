@@ -1,6 +1,12 @@
+<p align="center">
+  <img src="docs/assets/a2m-mark.svg" alt="A2M — AI connected to a computer terminal" width="330" />
+</p>
+
 # Chat On steriod (Desktop Commander Native)
 
 A high-performance, memory-safe, zero-telemetry reimplementation of Desktop Commander MCP built as modular Rust and Go microservices with a native Cocoa macOS desktop application.
+
+**New to A2M?** Follow the [visual setup and ChatGPT connection guide](docs/ONBOARDING.md) — compact clickable screenshots walk through tunnel setup, device connection, and a successful A2M response.
 
 ## Architecture
 

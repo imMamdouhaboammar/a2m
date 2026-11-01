@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1072" height="480" viewBox="294 94 536 240" role="img" aria-label="A2M icon: AI spark connected by a blue numeral two to a terminal screen">
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+
+    <path d="M416 265 C368 265 339 235 339 193 C339 151 370 121 414 121 C457 121 486 151 486 192 C486 216 477 235 461 248" stroke="#172336" stroke-width="11" />
+    <path d="M412 164 C415 182 420 188 440 192 C420 195 415 201 412 220 C408 200 402 195 384 192 C403 189 409 183 412 164Z" fill="#2974FF" stroke="none" />
+
+    <path d="M483 174 C510 134 554 126 589 148 C631 176 610 207 569 239 C535 265 523 282 538 296 C550 310 582 308 620 308" stroke="#2974FF" stroke-width="12" />
+    <circle cx="483" cy="174" r="7" fill="#2974FF" stroke="none" />
+
+    <rect x="639" y="145" width="172" height="121" rx="24" stroke="#172336" stroke-width="11" />
+    <path d="M672 190 L694 207 L672 224 M710 224 H740" stroke="#172336" stroke-width="10" />
+    <path d="M725 267 V295 M680 297 H769" stroke="#172336" stroke-width="10" />
+
+    <path d="M343 120 L330 106 M325 146 L307 142" stroke="#2974FF" stroke-width="7" />
+    <path d="M801 122 L815 108" stroke="#2974FF" stroke-width="7" />
+  </g>
+
+  </svg>

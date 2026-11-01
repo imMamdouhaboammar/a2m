@@ -1,8 +1,12 @@
 # A2M setup: connect ChatGPT to your own machine
 
-> This guide uses **eight PNG images only**: a cover, six steps with real OpenAI/ChatGPT/A2M screenshots, and a final verification checklist. Real account identifiers and hostnames have been redacted. Illustrated examples are labeled as such; no real key is shown.
+> This guide includes **nine PNG images**: a cover, six setup steps, a verification checklist, and an illustrative ChatGPT response showing A2M access. Real account identifiers and hostnames have been redacted. Illustrated examples are not proof of a live connection; no real key is shown.
+>
+> **Tip:** Select any small image or its **View full-size image** link to open the original resolution.
 
-![A2M onboarding cover](assets/onboarding/00-cover.png)
+<a href="assets/onboarding/00-cover.png"><img src="assets/onboarding/00-cover.png" alt="A2M onboarding cover" width="500" /></a>
+
+[View full-size image](assets/onboarding/00-cover.png)
 
 A2M runs an MCP gateway on your own computer. OpenAI Secure MCP Tunnel makes that **private** gateway available to supported OpenAI clients through an **outbound HTTPS connection to OpenAI**, without a public inbound port. The gateway, `tunnel-client`, and ChatGPT's custom MCP connection are distinct parts of this setup.
 
@@ -12,7 +16,9 @@ A2M runs an MCP gateway on your own computer. OpenAI Secure MCP Tunnel makes tha
 
 Open [OpenAI Platform / Tunnels](https://platform.openai.com/settings/organization/tunnels) and select **Create tunnel**. Enter a name such as `A2M` and a short description. Associate the tunnel with the **Platform organization** that owns it and the **ChatGPT workspace** in which you will use it.
 
-![Create an OpenAI tunnel](assets/onboarding/01-create-tunnel.png)
+<a href="assets/onboarding/01-create-tunnel.png"><img src="assets/onboarding/01-create-tunnel.png" alt="Create an OpenAI tunnel" width="420" /></a>
+
+[View full-size image](assets/onboarding/01-create-tunnel.png)
 
 Creating or editing tunnels requires **Tunnels: Read + Manage** permissions. Running a tunnel and selecting it in a connector requires **Tunnels: Read + Use**. An administrator may need to grant access.
 
@@ -20,7 +26,9 @@ Creating or editing tunnels requires **Tunnels: Read + Manage** permissions. Run
 
 Find the tunnel you just created and use its copy button. It will look like `tunnel_...`. Keep the **complete** ID for the ChatGPT connection and local A2M configuration.
 
-![Copy your tunnel ID](assets/onboarding/02-copy-tunnel-id.png)
+<a href="assets/onboarding/02-copy-tunnel-id.png"><img src="assets/onboarding/02-copy-tunnel-id.png" alt="Copy your tunnel ID" width="420" /></a>
+
+[View full-size image](assets/onboarding/02-copy-tunnel-id.png)
 
 The tunnel ID identifies the connection. It is **not** an API key. Do not reuse the example ID from a screenshot.
 
@@ -28,7 +36,9 @@ The tunnel ID identifies the connection. It is **not** an API key. Do not reuse 
 
 Open [OpenAI Platform / API keys](https://platform.openai.com/settings/organization/api-keys), choose **Create new secret key**, give it an identifiable name such as `A2M`, select the appropriate project and access scope, and save the resulting `sk-...` value **securely**. You may not be able to view it again after closing the dialog.
 
-![Create your runtime API key](assets/onboarding/03-create-api-key.png)
+<a href="assets/onboarding/03-create-api-key.png"><img src="assets/onboarding/03-create-api-key.png" alt="Create your runtime API key" width="420" /></a>
+
+[View full-size image](assets/onboarding/03-create-api-key.png)
 
 The runtime key authenticates the local `tunnel-client` to OpenAI. Give it only the permissions it needs, with **Tunnels: Read + Use** granted as required. Use a suitably restricted or service-account key where your organization supports it. Do not paste a live key into ChatGPT, a GitHub issue, or a public screenshot.
 
@@ -36,13 +46,17 @@ The runtime key authenticates the local `tunnel-client` to OpenAI. Give it only 
 
 Visit [ChatGPT / Plugins](https://chatgpt.com/plugins) and choose **Add → Add custom MCP server**.
 
-![Add custom MCP](assets/onboarding/04-add-custom-mcp.png)
+<a href="assets/onboarding/04-add-custom-mcp.png"><img src="assets/onboarding/04-add-custom-mcp.png" alt="Add custom MCP" width="420" /></a>
+
+[View full-size image](assets/onboarding/04-add-custom-mcp.png)
 
 ## 5. Pair it with the tunnel
 
 Give the MCP server a name (for example `A2M`), select **Tunnel** in the connection selector, then select your tunnel or paste its complete `tunnel_...` ID. Configure any separate MCP-level authentication required by your local gateway, review the security warning, and create the custom MCP server.
 
-![Pair your custom MCP server with the tunnel](assets/onboarding/05-pair-mcp-tunnel.png)
+<a href="assets/onboarding/05-pair-mcp-tunnel.png"><img src="assets/onboarding/05-pair-mcp-tunnel.png" alt="Pair your custom MCP server with the tunnel" width="420" /></a>
+
+[View full-size image](assets/onboarding/05-pair-mcp-tunnel.png)
 
 **Important:** The ChatGPT-side MCP authentication setting and the local `CONTROL_PLANE_API_KEY` are different concerns. The runtime OpenAI key remains on your own machine. If your tunnel is absent from the picker, first check workspace association and permissions.
 
@@ -59,7 +73,9 @@ A2M_GATEWAY_PORT=8765
 
 Never copy placeholder credentials verbatim into production. The secret must not appear in a public file or a logged command. Confirm the exact variable names against the A2M version you installed. **Packaged desktop distributions may use an app setup screen and the macOS Keychain instead of a developer `.env`; follow that build's installer guidance.** Paths should be resolved from each user's installation and runtime environment rather than from the author's home directory.
 
-![Real A2M Desktop screen with the Connect machine control; disconnected state clearly identified](assets/onboarding/06-connect-mac.png)
+<a href="assets/onboarding/06-connect-mac.png"><img src="assets/onboarding/06-connect-mac.png" alt="Real A2M Desktop screen with the Connect machine control; disconnected state clearly identified" width="420" /></a>
+
+[View full-size image](assets/onboarding/06-connect-mac.png)
 
 The screenshot shows the **actual A2M Desktop interface in its disconnected state**, not a successful tunnel connection. The `.env` example below it is an illustration, not a screenshot of private settings. Click **Connect machine** after configuring your own runtime credentials.
 
@@ -75,11 +91,23 @@ Keep `tunnel-client` running while using the MCP connection. A2M builds that con
 
 Open **A2M Desktop** and click **Connect machine**. Confirm the local gateway is healthy, the tunnel-client is ready and polling, and ChatGPT can discover tools. Invoke a **harmless read-only MCP tool** and confirm a successful response.
 
-![A2M end-to-end connection verification checklist](assets/onboarding/07-verify-connection.png)
+<a href="assets/onboarding/07-verify-connection.png"><img src="assets/onboarding/07-verify-connection.png" alt="A2M end-to-end connection verification checklist" width="420" /></a>
+
+[View full-size image](assets/onboarding/07-verify-connection.png)
 
 This image is a **verification checklist, not a screenshot of a successful run**. Check each item against your own machine and ChatGPT session before you consider the bridge ready.
 
 An online gateway or green UI indicator is **not sufficient** proof of end-to-end connectivity. Confirm a real call from the intended ChatGPT workspace. To disconnect, use the A2M control and verify the tunnel state actually changes.
+
+## 8. See what a successful ChatGPT ↔ A2M response looks like
+
+Once your tunnel and custom MCP connection are configured, open a ChatGPT conversation, select A2M, and ask it to perform a **read-only** check (for example, show the operating system or the current working directory). A real tool call must succeed on your machine before you consider setup verified.
+
+<a href="assets/onboarding/08-chatgpt-a2m-confirmed.png"><img src="assets/onboarding/08-chatgpt-a2m-confirmed.png" alt="Illustrative ChatGPT conversation confirming terminal access through A2M and listing available capabilities" width="620" /></a>
+
+[View full-size image](assets/onboarding/08-chatgpt-a2m-confirmed.png)
+
+**Illustrative example, not live verification evidence:** this image demonstrates the expected ChatGPT response and capability summary. The response on your own account must be based on a successful A2M tool call, not just a connected badge or a screenshot.
 
 ### If something does not connect
 
