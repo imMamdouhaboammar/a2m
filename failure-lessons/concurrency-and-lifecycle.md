@@ -16,10 +16,10 @@ WARNING: DATA RACE
 Write at 0x00c00010c2c0 by goroutine 34:
   bufio.(*Writer).Available()
   bufio.(*Writer).WriteString()
-  github.com/desktop-commander/dc-gateway/multiplex.(*MultiplexHub).sendLine()
+  github.com/imMamdouhaboammar/a2m/services/dc-gateway/multiplex.(*MultiplexHub).sendLine()
 Previous write at 0x00c00010c2c0 by goroutine 28:
   bufio.(*Writer).WriteString()
-  github.com/desktop-commander/dc-gateway/multiplex.(*MultiplexHub).handleClient()
+  github.com/imMamdouhaboammar/a2m/services/dc-gateway/multiplex.(*MultiplexHub).handleClient()
 ```
 
 ### Impact
@@ -237,11 +237,11 @@ The gateway started `dc-fs-engine` into the background but never stored the `cmd
 ### Observable symptom
 ```text
 ps aux | grep dc-fs-engine:
-mamdouhaboammar 4676  0.0 0.0 ... bin/dc-fs-engine daemon --socket /tmp/desktop-commander-ipc.sock
-mamdouhaboammar 4791  0.0 0.0 ... bin/dc-fs-engine daemon --socket /tmp/desktop-commander-ipc.sock
-mamdouhaboammar 4844  0.0 0.0 ... bin/dc-fs-engine daemon --socket /tmp/desktop-commander-ipc.sock
-mamdouhaboammar 4909  0.0 0.0 ... bin/dc-fs-engine daemon --socket /tmp/desktop-commander-ipc.sock
-mamdouhaboammar 5622  0.0 0.0 ... bin/dc-fs-engine daemon --socket /tmp/desktop-commander-ipc.sock
+mamdouhaboammar 4676  0.0 0.0 ... bin/dc-fs-engine daemon --socket /tmp/a2m-ipc.sock
+mamdouhaboammar 4791  0.0 0.0 ... bin/dc-fs-engine daemon --socket /tmp/a2m-ipc.sock
+mamdouhaboammar 4844  0.0 0.0 ... bin/dc-fs-engine daemon --socket /tmp/a2m-ipc.sock
+mamdouhaboammar 4909  0.0 0.0 ... bin/dc-fs-engine daemon --socket /tmp/a2m-ipc.sock
+mamdouhaboammar 5622  0.0 0.0 ... bin/dc-fs-engine daemon --socket /tmp/a2m-ipc.sock
 mamdouhaboammar 26707 0.0 0.0 ... bin/dc-fs-engine daemon --socket /tmp/a2m-ipc.sock
 mamdouhaboammar 30792 0.0 0.0 ... bin/dc-fs-engine daemon --socket /tmp/non_existent_socket_12345.sock
 ```

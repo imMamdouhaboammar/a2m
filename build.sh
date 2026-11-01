@@ -66,7 +66,6 @@ fi
 exec "${GATEWAY_BIN}" --socket "${SOCKET_PATH}" "$@"
 EOF
 chmod +x "${ROOT_DIR}/bin/a2m"
-ln -sf a2m "${ROOT_DIR}/bin/desktop-commander"
 
 echo "=========================================================="
 echo " Build Completed Successfully!"

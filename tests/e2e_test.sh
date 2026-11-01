@@ -7,14 +7,14 @@ echo "=========================================================="
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BIN="${SCRIPT_DIR}/bin/a2m"
-DOC_BIN="${SCRIPT_DIR}/bin/dc-doc-service"
+DOC_BIN="${SCRIPT_DIR}/bin/a2m-docs"
 
 if [ ! -x "${BIN}" ]; then
     echo "Error: ${BIN} not found or not executable" >&2
     exit 1
 fi
 
-TEMP_DIR="$(mktemp -d /tmp/dc_e2e_XXXXXX)"
+TEMP_DIR="$(mktemp -d /tmp/a2m_e2e_XXXXXX)"
 trap 'rm -rf "${TEMP_DIR}"' EXIT
 
 TEST_FILE="${TEMP_DIR}/app.py"
@@ -33,7 +33,7 @@ echo "--> Sending MCP JSON-RPC Test Suite via stdio..."
 
 RESPONSE_LOG="${TEMP_DIR}/responses.jsonl"
 
-cat << EOF | A2M_IPC_SOCKET="${TEMP_DIR}/a2m.sock" "${BIN}" > "${RESPONSE_LOG}"
+cat << EOF | A2M_IPC_SOCKET="${TEMP_DIR}/a2m.sock" A2M_SESSION_SOCKET="${TEMP_DIR}/session.sock" "${BIN}" > "${RESPONSE_LOG}"
 {"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}
 {"jsonrpc":"2.0","id":2,"method":"tools/list"}
 {"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"start_process","arguments":{"command":"echo 'Process Test 123'"}}}
@@ -57,7 +57,7 @@ EOF
 echo "--> Validating MCP responses..."
 
 # Check 1: initialize
-if grep -q '"name":"io.github.a2m/a2m-mcp"' "${RESPONSE_LOG}" || grep -q '"name":"io.github.wonderwhy-er/desktop-commander"' "${RESPONSE_LOG}"; then
+if grep -q '"name":"io.github.a2m/a2m-mcp"' "${RESPONSE_LOG}"; then
     echo "✓ Check 1: initialize returned correct serverInfo"
 else
     echo "✗ Check 1 failed: initialize response incorrect" >&2

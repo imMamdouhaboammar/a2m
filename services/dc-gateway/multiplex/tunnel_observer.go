@@ -178,7 +178,7 @@ func (s *Server) handleTunnelActivity(w http.ResponseWriter, r *http.Request) {
 
 func observableSidecars() map[string]string {
 	fsStatus := "unavailable"
-	for _, path := range []string{"/tmp/a2m-ipc.sock", "/tmp/desktop-commander-ipc.sock"} {
+	for _, path := range []string{"/tmp/a2m-ipc.sock", "/tmp/a2m-ipc.sock"} {
 		conn, err := net.DialTimeout("unix", path, 125*time.Millisecond)
 		if err == nil {
 			_ = conn.Close()

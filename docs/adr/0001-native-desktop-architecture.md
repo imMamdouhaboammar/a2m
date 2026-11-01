@@ -4,7 +4,7 @@
 Accepted
 
 ## Context
-Chat On steriod (Desktop Commander Native) requires a lightweight, security-sensitive desktop application for macOS and Windows. The solution must:
+A2M requires a lightweight, security-sensitive desktop application for macOS and Windows. The solution must:
 1. Provide a native GUI with one-click connect/disconnect for AI clients (ChatGPT, Claude, Cursor, and MCP clients).
 2. Display a live terminal monitor with streaming stdout/stderr, process state tracking, interactive stdin input, and an emergency kill switch.
 3. Run 100% offline-first locally, with zero telemetry and no vendor lock-in or artificial monthly call caps.

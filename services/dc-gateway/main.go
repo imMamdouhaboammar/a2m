@@ -11,12 +11,12 @@ import (
 	"strconv"
 	"syscall"
 
-	"github.com/desktop-commander/dc-gateway/auth"
-	"github.com/desktop-commander/dc-gateway/config"
-	"github.com/desktop-commander/dc-gateway/ipc"
-	"github.com/desktop-commander/dc-gateway/mcp"
-	"github.com/desktop-commander/dc-gateway/multiplex"
-	"github.com/desktop-commander/dc-gateway/process"
+	"github.com/imMamdouhaboammar/a2m/services/dc-gateway/auth"
+	"github.com/imMamdouhaboammar/a2m/services/dc-gateway/config"
+	"github.com/imMamdouhaboammar/a2m/services/dc-gateway/ipc"
+	"github.com/imMamdouhaboammar/a2m/services/dc-gateway/mcp"
+	"github.com/imMamdouhaboammar/a2m/services/dc-gateway/multiplex"
+	"github.com/imMamdouhaboammar/a2m/services/dc-gateway/process"
 )
 
 const (
@@ -29,13 +29,7 @@ func getSessionSocketPath() string {
 	if sock := os.Getenv("A2M_SESSION_SOCKET"); sock != "" {
 		return sock
 	}
-	path := "/tmp/a2m-session.sock"
-	if _, err := os.Stat(path); err != nil {
-		if _, errLegacy := os.Stat("/tmp/desktop-commander-session.sock"); errLegacy == nil {
-			return "/tmp/desktop-commander-session.sock"
-		}
-	}
-	return path
+	return "/tmp/a2m-session.sock"
 }
 
 func watchCapabilityShutdown(registry *mcp.Registry) {
@@ -177,7 +171,7 @@ func main() {
 		}
 	}
 
-	socketPath := flag.String("socket", "/tmp/desktop-commander-ipc.sock", "Path to Unix domain socket for dc-fs-engine")
+	socketPath := flag.String("socket", "/tmp/a2m-ipc.sock", "Path to Unix domain socket for dc-fs-engine")
 	configPath := flag.String("config", "", "Path to custom config.json")
 	tokenFlag := flag.String("token", "", "Pre-shared authorization token (or DC_AUTH_TOKEN)")
 	roleFlag := flag.String("role", "admin", "Role level: admin, workspace, read_only (or DC_AUTH_ROLE)")
@@ -188,7 +182,7 @@ func main() {
 	supervisor := process.NewSupervisor()
 	supervisor.SetBlockedCommands(cfgMgr.GetConfig().BlockedCommands)
 
-	sessionSock := "/tmp/desktop-commander-session.sock"
+	sessionSock := getSessionSocketPath()
 	hub := multiplex.NewMultiplexHub(supervisor, sessionSock)
 	_ = hub.Start()
 	defer hub.Close()

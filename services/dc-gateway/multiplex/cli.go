@@ -12,7 +12,7 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/desktop-commander/dc-gateway/process"
+	"github.com/imMamdouhaboammar/a2m/services/dc-gateway/process"
 )
 
 func dialControlSocket(socketPath string) (net.Conn, error) {
@@ -34,9 +34,9 @@ func dialControlSocket(socketPath string) (net.Conn, error) {
 
 	conn, err := net.Dial(network, addr)
 	if err != nil {
-		// Fallback to legacy socket path if present
-		if network == "unix" && addr != "/tmp/desktop-commander-session.sock" {
-			if legacyConn, legacyErr := net.Dial("unix", "/tmp/desktop-commander-session.sock"); legacyErr == nil {
+		// For custom socket overrides, retry the standard A2M session socket.
+		if network == "unix" && addr != "/tmp/a2m-session.sock" {
+			if legacyConn, legacyErr := net.Dial("unix", "/tmp/a2m-session.sock"); legacyErr == nil {
 				return legacyConn, nil
 			}
 		}

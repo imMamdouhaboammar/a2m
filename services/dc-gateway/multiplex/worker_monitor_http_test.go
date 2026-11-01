@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/desktop-commander/dc-gateway/process"
+	"github.com/imMamdouhaboammar/a2m/services/dc-gateway/process"
 )
 
 func TestDashboardMergesMCPWorkerSessionsAndOutput(t *testing.T) {

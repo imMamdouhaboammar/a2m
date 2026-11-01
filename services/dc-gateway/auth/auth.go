@@ -310,7 +310,7 @@ func loadOrGenerateLocalToken() string {
 	if err != nil {
 		homeDir = "."
 	}
-	authDir := filepath.Join(homeDir, ".desktop-commander")
+	authDir := filepath.Join(homeDir, ".a2m")
 	tokenPath := filepath.Join(authDir, "auth_token")
 
 	// Read existing token if available
@@ -325,6 +325,6 @@ func loadOrGenerateLocalToken() string {
 	freshToken := GenerateSecureToken()
 	_ = os.MkdirAll(authDir, 0700)
 	_ = os.WriteFile(tokenPath, []byte(freshToken+"\n"), 0600)
-	fmt.Fprintf(os.Stderr, "[desktop-commander] Generated secure local auth token at: %s\n", tokenPath)
+	fmt.Fprintf(os.Stderr, "[a2m] Generated secure local auth token at: %s\n", tokenPath)
 	return freshToken
 }

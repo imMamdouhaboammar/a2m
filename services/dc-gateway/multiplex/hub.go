@@ -11,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/desktop-commander/dc-gateway/process"
+	"github.com/imMamdouhaboammar/a2m/services/dc-gateway/process"
 )
 
 type EventType string
@@ -131,17 +131,6 @@ func (h *MultiplexHub) Start() error {
 
 	if network == "unix" {
 		_ = os.Chmod(addr, 0700)
-		if addr == "/tmp/a2m-session.sock" {
-			// Only the default gateway may manage the compatibility alias.
-			// Custom test sockets must never replace the live monitor socket.
-			// Do NOT clobber an active socket if another daemon/gateway is listening on it!
-			if c, err := net.Dial("unix", "/tmp/desktop-commander-session.sock"); err == nil {
-				_ = c.Close()
-			} else {
-				_ = os.Remove("/tmp/desktop-commander-session.sock")
-				_ = os.Symlink(addr, "/tmp/desktop-commander-session.sock")
-			}
-		}
 	}
 
 	go h.acceptLoop()

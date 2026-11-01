@@ -1,4 +1,4 @@
-# Desktop Commander MCP Reconnaissance Map
+# Historical upstream MCP reconnaissance map
 
 Target: `wonderwhy-er/DesktopCommanderMCP` (npm: `@wonderwhy-er/desktop-commander`, v0.3.1)
 Platform: Cross-platform Desktop MCP Server (macOS, Linux, Windows)

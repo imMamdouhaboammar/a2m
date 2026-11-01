@@ -1,12 +1,12 @@
-# AGENTS.md — Desktop Commander Agentic Constitution & Harness Protocol
+# AGENTS.md — A2M Agentic Constitution & Harness Protocol
 
-Operational contract for autonomous AI agents connecting via Desktop Commander MCP.
+Operational contract for autonomous AI agents connecting via A2M MCP.
 
 ---
 
 ## 1. Operating Foundations: Get Things Done (GTD) Protocol
 
-Every task executed through Desktop Commander must advance through verified gates before declaring completion.
+Every task executed through A2M must advance through verified gates before declaring completion.
 
 ```
 ┌─────────────────┐     ┌──────────────────┐     ┌───────────────────┐     ┌──────────────────┐

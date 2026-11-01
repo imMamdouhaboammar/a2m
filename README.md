@@ -2,9 +2,9 @@
   <img src="docs/assets/a2m-mark.svg" alt="A2M — AI connected to a computer terminal" width="330" />
 </p>
 
-# Chat On steriod (Desktop Commander Native)
+# A2M — Agent to Machine
 
-A high-performance, memory-safe, zero-telemetry reimplementation of Desktop Commander MCP built as modular Rust and Go microservices with a native Cocoa macOS desktop application.
+A2M (Agent to Machine) is a local-first MCP bridge built with Rust and Go microservices and a native macOS desktop application. It lets supported AI clients interact with authorized terminal processes, files and developer workflows.
 
 **New to A2M?** Follow the [visual setup and ChatGPT connection guide](docs/ONBOARDING.md) — compact clickable screenshots walk through tunnel setup, device connection, and a successful A2M response.
 
@@ -44,7 +44,7 @@ A high-performance, memory-safe, zero-telemetry reimplementation of Desktop Comm
 
 Tested on macOS Apple Silicon arm64 (see [docs/benchmarks/native-vs-original.md](docs/benchmarks/native-vs-original.md)):
 
-| Metric | Original Desktop Commander (Node.js/Electron) | Chat On steriod Native (Rust & Go) |
+| Metric | Reference Node.js/Electron tool | A2M Native (Rust & Go) |
 | --- | --- | --- |
 | Cold Startup Latency | 1,200 ms – 2,500 ms | **55 ms** |
 | Command Roundtrip Latency | 2,050 ms | **6 ms** |
@@ -57,7 +57,7 @@ Tested on macOS Apple Silicon arm64 (see [docs/benchmarks/native-vs-original.md]
 
 ## Desktop Application (macOS)
 
-The native desktop application (`ChatOnSteriod.app`) provides a complete graphical interface:
+The native desktop application (`A2M.app`) provides a complete graphical interface:
 - **One-Click Connect / Disconnect:** Connects the local machine to the AI assistant using OpenAI's official `tunnel-client` or private SSE transport.
 - **Live Terminal Monitor:** Displays real-time streaming output (`stdout`/`stderr`) of everything the AI runs with search, auto-scroll, ANSI colors, and output export.
 - **Interactive Control:** Allows sending input (`stdin`) to prompts or triggering immediate emergency process termination (`Kill Process`).
@@ -65,11 +65,11 @@ The native desktop application (`ChatOnSteriod.app`) provides a complete graphic
 
 Install via DMG:
 ```bash
-open dist/ChatOnSteriod-macos-arm64.dmg
+open dist/A2M-macos-arm64.dmg
 ```
 Or launch directly:
 ```bash
-open apps/desktop/macos/ChatOnSteriod.app
+open apps/desktop/macos/A2M.app
 ```
 
 ## Build & Test
@@ -92,8 +92,8 @@ make e2e
 ```json
 {
   "mcpServers": {
-    "desktop-commander": {
-      "command": "/absolute/path/to/clever-hypatia/bin/desktop-commander"
+    "a2m": {
+      "command": "/absolute/path/to/clever-hypatia/bin/a2m"
     }
   }
 }
@@ -104,12 +104,16 @@ make e2e
 ```json
 {
   "mcpServers": {
-    "desktop-commander": {
-      "command": "/absolute/path/to/clever-hypatia/bin/desktop-commander"
+    "a2m": {
+      "command": "/absolute/path/to/clever-hypatia/bin/a2m"
     }
   }
 }
 ```
+
+### Tunnel profile names
+
+A2M uses `a2m` and `a2m-2` as the default tunnel-client profile names. If you already have a tunnel-client profile with another name, set `A2M_TUNNEL_PROFILE_1` or `A2M_TUNNEL_PROFILE_2` in your local, untracked environment file; **do not rename or delete an active tunnel profile automatically**. New local configuration and authorization data use the `~/.a2m/` directory. Verify your existing settings after upgrading.
 
 ## Tool Catalog
 
@@ -156,7 +160,7 @@ make e2e
 
 ## Security & Access Control (RBAC)
 
-Desktop Commander includes a 100% offline-first security gateway with constant-time token verification (`crypto/subtle`) and role-based capability gating:
+A2M includes a 100% offline-first security gateway with constant-time token verification (`crypto/subtle`) and role-based capability gating:
 
 * **Environment Configuration:**
   * `DC_AUTH_TOKEN`: Sets the expected pre-shared security token.
@@ -168,27 +172,27 @@ Desktop Commander includes a 100% offline-first security gateway with constant-t
 
 ## Multi-Party Multiplexed Bridge (Human + AI Dual-Terminal)
 
-Desktop Commander natively bridges the AI client and the human operator through zero-overhead local IPC sockets and Server-Sent Events (SSE). While an AI assistant is running tasks, the human developer can observe and interact with live processes from any terminal or browser window:
+A2M natively bridges the AI client and the human operator through zero-overhead local IPC sockets and Server-Sent Events (SSE). While an AI assistant is running tasks, the human developer can observe and interact with live processes from any terminal or browser window:
 
 ### 1. Terminal CLI Multi-Party Commands
 
 ```bash
 # List active and recent processes launched by the AI agent
-desktop-commander ps
+a2m ps
 
 # Stream real-time colored stdout and stderr from all AI processes
-desktop-commander watch
+a2m watch
 
 # Attach directly to a running AI process; watch output and send stdin from your keyboard
-desktop-commander attach <PID>
+a2m attach <PID>
 ```
 
 ### 2. Standing HTTP / SSE Server & Web Dashboard
 
-Launch Desktop Commander as a standing background daemon providing both MCP SSE transport and an interactive browser dashboard:
+Launch A2M as a standing background daemon providing both MCP SSE transport and an interactive browser dashboard:
 
 ```bash
-desktop-commander server --port 8765
+a2m server --port 8765
 ```
 
 * **Live Web Dashboard:** Open `http://127.0.0.1:8765` in your browser to inspect running processes, view real-time log streams, inject terminal input, and terminate tasks.

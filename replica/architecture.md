@@ -1,4 +1,4 @@
-# Desktop Commander: Rust & Go Microservices Architecture
+# A2M: Rust & Go Microservices Architecture
 
 ## 1. System Overview & Technology Stack
 
@@ -42,7 +42,7 @@ The monolithic Node.js implementation (with 50+ npm dependencies and 52MB asset 
 ## 2. Component Boundaries & IPC Protocol
 
 ### Inter-Service Communication (IPC)
-- **Transport:** Unix Domain Socket at `/tmp/desktop-commander-ipc.sock` (or Windows Named Pipe `\\.\pipe\desktop-commander-ipc`).
+- **Transport:** Unix Domain Socket at `/tmp/a2m-ipc.sock` (or Windows Named Pipe `\\.\pipe\a2m-ipc`).
 - **Framing:** Line-delimited JSON-RPC 2.0 (`\n`).
 - **Gateway Dispatch:**
   - `start_process`, `read_process_output`, `interact_with_process`, `kill_process`, `force_terminate`, `list_sessions`, `list_processes` -> handled locally in `dc-gateway`.
@@ -123,5 +123,5 @@ pub struct EditBlockResult {
    - Wire Unix domain socket IPC between Gateway and Engines.
    - Implement Excel and PDF reader/editor tools.
 4. **Phase 4: Unified Binary & End-to-End Validation**
-   - Provide standalone zero-dependency launcher `desktop-commander`.
+   - Provide standalone zero-dependency launcher `a2m`.
    - Run end-to-end integration tests over MCP stdio.

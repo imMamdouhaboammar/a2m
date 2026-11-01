@@ -29,7 +29,6 @@ cp bin/a2m "${TARGET_DIR}/"
 cp bin/a2m-gateway "${TARGET_DIR}/"
 cp bin/a2m-fs "${TARGET_DIR}/"
 cp bin/a2m-docs "${TARGET_DIR}/"
-cp bin/desktop-commander "${TARGET_DIR}/"
 cp bin/dc-gateway "${TARGET_DIR}/"
 cp bin/dc-fs-engine "${TARGET_DIR}/"
 cp bin/dc-doc-service "${TARGET_DIR}/"
@@ -46,12 +45,6 @@ EOF
 TARBALL="${DIST_DIR}/${PKG_NAME}.tar.gz"
 echo "--> Compressing archive to ${TARBALL}..."
 (cd "${DIST_DIR}" && tar -czf "${PKG_NAME}.tar.gz" "${PKG_NAME}")
-
-# Legacy package symlink
-(
-    cd "${DIST_DIR}"
-    ln -sf "${PKG_NAME}.tar.gz" "desktop-commander-${OS}-${ARCH}.tar.gz"
-)
 
 # Generate SHA256
 if command -v shasum >/dev/null 2>&1; then

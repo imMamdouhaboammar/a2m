@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/desktop-commander/dc-gateway/auth"
-	"github.com/desktop-commander/dc-gateway/config"
+	"github.com/imMamdouhaboammar/a2m/services/dc-gateway/auth"
+	"github.com/imMamdouhaboammar/a2m/services/dc-gateway/config"
 )
 
 // A real stdio JSON-RPC MCP fixture, not a mocked listTools response.

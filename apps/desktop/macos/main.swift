@@ -106,9 +106,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNavigati
         let currentDir = FileManager.default.currentDirectoryPath
         var candidates = [
             Bundle.main.bundlePath + "/Contents/MacOS/a2m",
-            Bundle.main.bundlePath + "/Contents/MacOS/desktop-commander",
+            Bundle.main.bundlePath + "/Contents/MacOS/a2m",
             currentDir + "/bin/a2m",
-            currentDir + "/bin/desktop-commander",
+            currentDir + "/bin/a2m",
             "/usr/local/bin/a2m",
             "/opt/homebrew/bin/a2m"
         ]

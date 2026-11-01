@@ -1,4 +1,4 @@
-module github.com/desktop-commander/dc-doc-service
+module github.com/imMamdouhaboammar/a2m/services/dc-doc-service
 
 go 1.25.0
 

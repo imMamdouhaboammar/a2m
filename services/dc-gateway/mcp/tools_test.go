@@ -9,10 +9,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/desktop-commander/dc-gateway/auth"
-	"github.com/desktop-commander/dc-gateway/config"
-	"github.com/desktop-commander/dc-gateway/ipc"
-	"github.com/desktop-commander/dc-gateway/process"
+	"github.com/imMamdouhaboammar/a2m/services/dc-gateway/auth"
+	"github.com/imMamdouhaboammar/a2m/services/dc-gateway/config"
+	"github.com/imMamdouhaboammar/a2m/services/dc-gateway/ipc"
+	"github.com/imMamdouhaboammar/a2m/services/dc-gateway/process"
 )
 
 func TestToolRegistryListingAndDispatch(t *testing.T) {
@@ -171,7 +171,7 @@ func TestDocumentToolsExecution(t *testing.T) {
 	editArgs, _ := json.Marshal(map[string]string{
 		"path":    docxPath,
 		"find":    "Hello World",
-		"replace": "Greetings Desktop Commander",
+		"replace": "Greetings A2M",
 	})
 	editRes := registry.Dispatch("docx_edit", editArgs)
 	if editRes.IsError {
@@ -180,7 +180,7 @@ func TestDocumentToolsExecution(t *testing.T) {
 
 	// Verify edit
 	readRes2 := registry.Dispatch("docx_read", readArgs)
-	if !strings.Contains(readRes2.Content[0].Text, "Greetings Desktop Commander") {
+	if !strings.Contains(readRes2.Content[0].Text, "Greetings A2M") {
 		t.Errorf("expected updated docx text, got: %s", readRes2.Content[0].Text)
 	}
 }

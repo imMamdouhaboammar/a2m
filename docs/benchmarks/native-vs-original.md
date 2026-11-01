@@ -1,4 +1,4 @@
-# Performance Validation: Chat On steriod (Native) vs Original Desktop Commander
+# Performance Validation: A2M Native vs Node.js/Electron Reference
 
 ## 1. Methodology & Test Environment
 
@@ -6,7 +6,7 @@
 * **Operating System:** macOS Darwin 24.x (arm64)
 * **Measurement Runner:** `scripts/benchmark.sh`
 * **Test Workloads:**
-  * Cold startup latency: Average over 10 consecutive invocations (`bin/desktop-commander --help`).
+  * Cold startup latency: Average over 10 consecutive invocations (`bin/a2m --help`).
   * Command roundtrip latency: 50 consecutive JSON-RPC tool calls executing short shell processes (`echo bench_test`) over stdio MCP.
   * Memory footprint: Resident Set Size (RSS) queried via POSIX kernel table (`ps -o rss=`).
   * Storage footprint: Binary and compressed package sizes on disk.
@@ -15,7 +15,7 @@
 
 ## 2. Benchmark Results
 
-| Metric | Original Desktop Commander (Node.js/Electron) | Chat On steriod Native (Rust & Go) | Delta / Improvement |
+| Metric | Reference Node.js/Electron tool | A2M Native (Rust & Go) | Delta / Improvement |
 | --- | --- | --- | --- |
 | **Cold Process Startup** | ~1,200 ms – 2,500 ms (Node runtime startup) | **55 ms** (Native binary) | **22x – 45x faster** |
 | **Command Execution Latency** | 2,050 ms (due to unnotified wait loops) | **6 ms** (process spawn, capture & return) | **340x faster** |

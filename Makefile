@@ -17,5 +17,5 @@ package:
 	./scripts/package.sh
 
 clean:
-	rm -rf bin/a2m* bin/dc-* bin/desktop-commander dist apps/desktop/macos/A2M.app
+	rm -rf bin/a2m* bin/dc-* dist apps/desktop/macos/A2M.app
 	cd services/dc-fs-engine && cargo clean

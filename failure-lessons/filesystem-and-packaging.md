@@ -61,18 +61,18 @@ Never co-locate build artifacts that differ only by character casing in the same
 `services/dc-gateway/multiplex/hub.go` binds a Unix Domain Socket to provide local IPC communication between the gateway daemon and CLI utilities (`a2m ps`, `a2m watch`, `a2m attach`).
 
 ### What happened
-Running `tests/e2e_test.sh` while the gateway daemon was active caused subsequent CLI commands (`a2m ps`) to fail with `dial unix /tmp/desktop-commander-session.sock: connect: no such file or directory` or `connection refused`.
+Running `tests/e2e_test.sh` while the gateway daemon was active caused subsequent CLI commands (`a2m ps`) to fail with `dial unix /tmp/a2m-session.sock: connect: no such file or directory` or `connection refused`.
 
 ### Observable symptom
 ```text
-Error: could not connect to A2M control socket at /tmp/desktop-commander-session.sock (unix). Is A2M running? (dial unix /tmp/desktop-commander-session.sock: connect: connection refused)
+Error: could not connect to A2M control socket at /tmp/a2m-session.sock (unix). Is A2M running? (dial unix /tmp/a2m-session.sock: connect: connection refused)
 ```
 
 ### Impact
 Denial of Service for local CLI monitoring and control: running any test or secondary CLI instance destroyed the IPC socket of the primary daemon.
 
 ### Incorrect assumption
-Assumed that a hardcoded global path (`/tmp/desktop-commander-session.sock`) was acceptable and that calling `os.Remove(addr)` on startup was harmless.
+Assumed that a hardcoded global path (`/tmp/a2m-session.sock`) was acceptable and that calling `os.Remove(addr)` on startup was harmless.
 
 ### Root cause
 **Confirmed**. In `hub.Start()`, `os.Remove(addr)` was called unconditionally before `net.Listen("unix", addr)`. When a short-lived test instance started, it unlinked the active daemon's socket inode from `/tmp`. When the test exited, the socket was permanently gone. Furthermore, sockets had default `umask` permissions without restricting access to the user.

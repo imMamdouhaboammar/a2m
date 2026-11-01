@@ -1,4 +1,4 @@
-module github.com/desktop-commander/dc-gateway
+module github.com/imMamdouhaboammar/a2m/services/dc-gateway
 
 go 1.24.0
 

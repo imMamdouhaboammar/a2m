@@ -47,7 +47,7 @@ type FsEngineClient struct {
 
 func NewFsEngineClient(socketPath string) *FsEngineClient {
 	if socketPath == "" {
-		socketPath = "/tmp/desktop-commander-ipc.sock"
+		socketPath = "/tmp/a2m-ipc.sock"
 	}
 
 	execPath, err := os.Executable()

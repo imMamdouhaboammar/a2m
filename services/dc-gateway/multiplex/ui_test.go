@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/desktop-commander/dc-gateway/process"
+	"github.com/imMamdouhaboammar/a2m/services/dc-gateway/process"
 )
 
 func TestDesktopUIAssetsAreServedFromProject(t *testing.T) {

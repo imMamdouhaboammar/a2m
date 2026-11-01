@@ -8,7 +8,7 @@
 In the macOS Native Cocoa GUI (`apps/desktop/macos/main.swift`), an administrative dashboard monitors system health, active processes, and remote MCP connectivity. Simultaneously, background daemons (`tunnel-client` and `a2m-gateway`) can be managed externally or persist across GUI launches.
 
 ### What happened
-The user launched the newly compiled desktop application (`A2M.app`). The UI rendered its initial state displaying a red "Disconnected" badge and a green "Connect" button. However, in the background, `tunnel-client` (OpenAI Desktop Commander tunnel) and `a2m-gateway` were already running and servicing requests. When ChatGPT was prompted, it connected via the active tunnel and executed shell commands (`pwd`, `whoami`, `uname -s`) with full success, despite the desktop application indicating the device was disconnected.
+The user launched the newly compiled desktop application (`A2M.app`). The UI rendered its initial state displaying a red "Disconnected" badge and a green "Connect" button. However, in the background, `tunnel-client` (OpenAI A2M tunnel) and `a2m-gateway` were already running and servicing requests. When ChatGPT was prompted, it connected via the active tunnel and executed shell commands (`pwd`, `whoami`, `uname -s`) with full success, despite the desktop application indicating the device was disconnected.
 
 ### Observable symptom
 The GUI window explicitly claimed status: **Disconnected**, while external AI clients concurrently executed remote shell commands on the workstation and received terminal outputs in real time.
@@ -57,10 +57,10 @@ Companion desktop dashboards that manage or observe background daemons must trea
 ## FL-010: Remote MCP Relay Decoupling and Port Mapping Mismatch
 
 ### Context
-Remote MCP connectivity relies on bridging public reverse tunnels (such as Cloudflare, Desktop Commander Relay, or custom WebSocket tunnels) to the local A2M gateway over loopback TCP ports (e.g. 8080 or 8765).
+Remote MCP connectivity relies on bridging public reverse tunnels (such as Cloudflare, A2M Relay, or custom WebSocket tunnels) to the local A2M gateway over loopback TCP ports (e.g. 8080 or 8765).
 
 ### What happened
-When running legacy Desktop Commander alongside A2M, tunnel configurations referenced hardcoded port 8080 from configuration profiles (`--profile desktop-commander`), while the native Go gateway was launched on port 8765. In other instances, orphaned Node.js processes occupied port 8080, causing tunnel requests to either fail with connection refused or proxy into stale, unmonitored Node.js runtimes.
+When running legacy A2M alongside A2M, tunnel configurations referenced hardcoded port 8080 from configuration profiles (`--profile a2m`), while the native Go gateway was launched on port 8765. In other instances, orphaned Node.js processes occupied port 8080, causing tunnel requests to either fail with connection refused or proxy into stale, unmonitored Node.js runtimes.
 
 ### Observable symptom
 External AI clients failed to connect, returned `502 Bad Gateway`, or experienced silent drops during tool execution, without any error reported in the native Go gateway logs.

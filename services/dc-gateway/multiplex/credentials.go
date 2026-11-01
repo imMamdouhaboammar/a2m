@@ -167,8 +167,8 @@ func FindTunnelClientBinary() (string, error) {
 	return "", fmt.Errorf("tunnel-client binary not found in PATH or standard macOS locations (/opt/homebrew/bin/tunnel-client)")
 }
 
-// FindDesktopCommanderBinary resolves the desktop-commander / a2m CLI wrapper.
-func FindDesktopCommanderBinary() (string, error) {
+// FindA2MBinary resolves the A2M CLI wrapper.
+func FindA2MBinary() (string, error) {
 	if configured := os.Getenv("A2M_MCP_BINARY"); configured != "" {
 		if info, err := os.Stat(configured); err == nil && !info.IsDir() && info.Mode()&0111 != 0 {
 			return configured, nil
@@ -178,7 +178,7 @@ func FindDesktopCommanderBinary() (string, error) {
 	// Check same directory as current running executable (e.g. inside A2M.app/Contents/MacOS)
 	if exe, err := os.Executable(); err == nil {
 		dir := filepath.Dir(exe)
-		for _, name := range []string{"desktop-commander", "a2m", "a2m-gateway"} {
+		for _, name := range []string{"a2m", "a2m-gateway"} {
 			candidate := filepath.Join(dir, name)
 			if info, err := os.Stat(candidate); err == nil && !info.IsDir() && info.Mode()&0111 != 0 {
 				return candidate, nil
@@ -190,12 +190,12 @@ func FindDesktopCommanderBinary() (string, error) {
 
 	if home, err := os.UserHomeDir(); err == nil {
 		candidates = append(candidates,
-			filepath.Join(home, ".local", "bin", "desktop-commander"),
-			filepath.Join(home, "go", "bin", "desktop-commander"),
+			filepath.Join(home, ".local", "bin", "a2m"),
+			filepath.Join(home, "go", "bin", "a2m"),
 		)
 	}
 
-	if pathBin, err := exec.LookPath("desktop-commander"); err == nil {
+	if pathBin, err := exec.LookPath("a2m"); err == nil {
 		candidates = append([]string{pathBin}, candidates...)
 	}
 
@@ -205,7 +205,7 @@ func FindDesktopCommanderBinary() (string, error) {
 		}
 	}
 
-	return "", fmt.Errorf("desktop-commander binary not found")
+	return "", fmt.Errorf("a2m binary not found")
 }
 
 func readKeyFromDotEnv() string {

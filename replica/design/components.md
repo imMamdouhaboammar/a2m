@@ -1,4 +1,4 @@
-# Desktop Commander Component Specifications
+# A2M Component Specifications
 
 ## 1. Process Supervisor (`dc-gateway::process`)
 - **Role:** Spawns, tracks, buffers, and terminates native host processes.

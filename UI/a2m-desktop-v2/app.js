@@ -115,6 +115,8 @@
     function renderTunnelSlot(slotNum) {
       const tData = data?.tunnels?.[String(slotNum)] || {};
       const slotRaw = String(tData?.state || "");
+      const profileLabel = $(`#slot-tunnel-${slotNum} .tunnel-profile-label`);
+      if (profileLabel) profileLabel.textContent = tData.profile || (slotNum === 1 ? "a2m" : "a2m-2");
       const slotReady = Boolean(tData?.ready);
       const slotConnected = slotReady || slotRaw.toLowerCase() === "connected";
       const pending = state.pendingTunnelActions?.[slotNum];

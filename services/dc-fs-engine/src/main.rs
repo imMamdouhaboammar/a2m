@@ -9,7 +9,7 @@ use std::sync::Arc;
 
 #[derive(Parser)]
 #[command(name = "dc-fs-engine")]
-#[command(about = "Desktop Commander Fast Filesystem and Search Engine (Rust Microservice)")]
+#[command(about = "A2M Fast Filesystem and Search Engine (Rust Microservice)")]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -17,9 +17,9 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Run as an IPC daemon for the Desktop Commander microservice mesh
+    /// Run as an IPC daemon for the A2M microservice mesh
     Daemon {
-        #[arg(short, long, default_value = "/tmp/desktop-commander-ipc.sock")]
+        #[arg(short, long, default_value = "/tmp/a2m-ipc.sock")]
         socket: PathBuf,
         #[arg(short, long)]
         tcp: Option<String>,

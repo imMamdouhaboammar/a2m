@@ -26,7 +26,7 @@ cp -R "${SCRIPT_DIR}/UI/a2m-desktop-v2" "${RESOURCES_DIR}/UI/"
 # Readable static assets are required for the Go sidecar to serve the UI.
 chmod -R a+rX "${RESOURCES_DIR}/UI"
 
-# Original A2M macOS dock/Finder icon, rendered from the in-app link mark.
+# A2M macOS dock/Finder icon, rendered from the in-app link mark.
 cp "${SCRIPT_DIR}/apps/desktop/macos/assets/A2M.icns" "${RESOURCES_DIR}/A2M.icns"
 
 # 3. Write Info.plist
@@ -82,7 +82,6 @@ cp "${SCRIPT_DIR}/bin/a2m" "${MACOS_DIR}/"
     ln -sf a2m-gateway dc-gateway
     ln -sf a2m-fs dc-fs-engine
     ln -sf a2m-docs dc-doc-service
-    ln -sf a2m desktop-commander
 )
 
 chmod -R +x "${MACOS_DIR}"
@@ -111,12 +110,6 @@ hdiutil create -volname "A2M Desktop" \
     "${DMG_PATH}" > /dev/null
 
 rm -rf "${DMG_STAGING}"
-
-# Keep legacy names symlinked for seamless upgrade
-(
-    cd "${DIST_DIR}"
-    ln -sf A2M-macos-arm64.dmg ChatOnSteriod-macos-arm64.dmg
-)
 
 echo "=========================================================="
 echo " A2M Desktop Built Successfully!"

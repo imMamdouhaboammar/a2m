@@ -14,11 +14,11 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/desktop-commander/dc-gateway/process"
+	"github.com/imMamdouhaboammar/a2m/services/dc-gateway/process"
 )
 
 const (
-	defaultWorkerSocket = "/tmp/desktop-commander-session.sock"
+	defaultWorkerSocket = "/tmp/a2m-session.sock"
 	maxWorkerLines      = 250
 	maxWorkerPIDs       = 64
 	maxWorkerTextSize   = 4096

@@ -5,17 +5,17 @@ import (
 )
 
 type Request struct {
-	JsonRpc string          `json:"jsonrpc"`
+	JsonRpc string           `json:"jsonrpc"`
 	ID      *json.RawMessage `json:"id,omitempty"`
-	Method  string          `json:"method"`
-	Params  json.RawMessage `json:"params,omitempty"`
+	Method  string           `json:"method"`
+	Params  json.RawMessage  `json:"params,omitempty"`
 }
 
 type Response struct {
-	JsonRpc string          `json:"jsonrpc"`
+	JsonRpc string           `json:"jsonrpc"`
 	ID      *json.RawMessage `json:"id,omitempty"`
-	Result  interface{}     `json:"result,omitempty"`
-	Error   *ErrorObject    `json:"error,omitempty"`
+	Result  interface{}      `json:"result,omitempty"`
+	Error   *ErrorObject     `json:"error,omitempty"`
 }
 
 type ErrorObject struct {

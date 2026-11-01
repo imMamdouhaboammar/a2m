@@ -29,7 +29,7 @@ The selected project is stored in the local gateway configuration:
 }
 ```
 
-The A2M Go config manager uses `~/.desktop-commander/config.json` for this setting. The `A2M_WORKSPACE_ROOT` environment variable can override it for isolated testing.
+The A2M Go config manager uses `~/.a2m/config.json` for this setting. The `A2M_WORKSPACE_ROOT` environment variable can override it for isolated testing.
 
 Code Review Graph 2.3.6 normally performs full builds using Git-tracked files. A2M prepares a **private temporary Git index** containing intent-to-add entries for untracked source files. This index is passed only to the CRG process through `GIT_INDEX_FILE`. The real `.git/index` stays untouched. The private index is rebuilt before each graph refresh to include newly added files.
 

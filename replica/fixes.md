@@ -1,4 +1,4 @@
-# Desktop Commander: User Feedback, Fix Plan & Positioning Strategy
+# A2M: Historical User Research, Fix Plan & Positioning Strategy
 
 ## 1. What They Hate (Ranked Complaints)
 
@@ -66,13 +66,13 @@
 ## 5. Positioning Angles
 
 ### Option A (Performance & Efficiency)
-> For software developers running local AI coding agents who hate sluggish cold-starts and 100MB+ memory bloat, **Desktop Commander Native** provides a Rust and Go microservice engine that starts in under 10 milliseconds and consumes less than 10MB RAM.
+> For software developers running local AI coding agents who hate sluggish cold-starts and 100MB+ memory bloat, **A2M Native** provides a Rust and Go microservice engine that starts in under 10 milliseconds and consumes less than 10MB RAM.
 > *Evidence:* High Memory & Node Runtime complaints, 3 reviews across 2 sources.
 
 ### Option B (Enterprise Privacy & Security — Recommended)
-> For engineering teams and privacy-conscious developers who hate background telemetry, orphan zombie processes, and command bypass vulnerabilities, **Desktop Commander Native** is a 100% offline-first, strictly sandboxed terminal and filesystem MCP server with zero external calls and deterministic process tree termination.
+> For engineering teams and privacy-conscious developers who hate background telemetry, orphan zombie processes, and command bypass vulnerabilities, **A2M Native** is a 100% offline-first, strictly sandboxed terminal and filesystem MCP server with zero external calls and deterministic process tree termination.
 > *Evidence:* Telemetry, Security Bypass, and Orphan Process complaints, 6 reviews across 3 sources.
 
 ### Option C (Air-Gapped & Corporate Compliance)
-> For enterprise platform teams whose developers cannot install bleeding-edge Node 22 runtimes or unvetted npm dependency trees, **Desktop Commander Native** delivers a single self-contained, statically compilable binary package with zero runtime dependencies.
+> For enterprise platform teams whose developers cannot install bleeding-edge Node 22 runtimes or unvetted npm dependency trees, **A2M Native** delivers a single self-contained, statically compilable binary package with zero runtime dependencies.
 > *Evidence:* Node >= 22 compatibility issues, 2 reviews across 2 sources.

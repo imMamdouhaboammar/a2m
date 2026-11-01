@@ -15,9 +15,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/desktop-commander/dc-gateway/auth"
-	"github.com/desktop-commander/dc-gateway/mcp"
-	"github.com/desktop-commander/dc-gateway/process"
+	"github.com/imMamdouhaboammar/a2m/services/dc-gateway/auth"
+	"github.com/imMamdouhaboammar/a2m/services/dc-gateway/mcp"
+	"github.com/imMamdouhaboammar/a2m/services/dc-gateway/process"
 )
 
 type sseSession struct {
@@ -26,7 +26,7 @@ type sseSession struct {
 }
 
 type Server struct {
-	registry    *mcp.Registry
+	registry     *mcp.Registry
 	supervisor   *process.Supervisor
 	hub          *MultiplexHub
 	worker       *WorkerMonitor
@@ -216,7 +216,7 @@ func (s *Server) Start(addr string) error {
 	mux.HandleFunc("/app.js", s.securityMiddleware(s.handleUIScript, http.MethodGet))
 	mux.HandleFunc("/", s.securityMiddleware(s.handleDashboard, http.MethodGet))
 
-	fmt.Printf("\033[1;32m[Desktop Commander]\033[0m Multi-party HTTP & SSE server listening on http://%s\n", addr)
+	fmt.Printf("\033[1;32m[A2M]\033[0m Multi-party HTTP & SSE server listening on http://%s\n", addr)
 	fmt.Printf("  • MCP SSE Endpoint:     http://%s/sse\n", addr)
 	fmt.Printf("  • Web Live Dashboard:   http://%s/\n", addr)
 
@@ -484,6 +484,21 @@ func isTunnelActivePort(port int) bool {
 	return false
 }
 
+// tunnelProfileName uses A2M branding by default while allowing users of
+// existing local tunnel-client configurations to select their own profile.
+func tunnelProfileName(slot int) string {
+	if slot == 2 {
+		if override := strings.TrimSpace(os.Getenv("A2M_TUNNEL_PROFILE_2")); override != "" {
+			return override
+		}
+		return "a2m-2"
+	}
+	if override := strings.TrimSpace(os.Getenv("A2M_TUNNEL_PROFILE_1")); override != "" {
+		return override
+	}
+	return "a2m"
+}
+
 func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 	// Observe both tunnel 1 (port 8080) and tunnel 2 (port 8081)
 	obs1 := observeTunnelClientAt("http://127.0.0.1:8080")
@@ -543,16 +558,16 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 
 	hostname, _ := os.Hostname()
 	status := map[string]interface{}{
-		"connectionState":        overallState,
-		"tunnelOwner":            primaryOwner,
-		"tunnelId":               primaryObs.TunnelID,
-		"connectedDuration":      primaryObs.Uptime,
-		"tunnel":                 primaryObs,
+		"connectionState":   overallState,
+		"tunnelOwner":       primaryOwner,
+		"tunnelId":          primaryObs.TunnelID,
+		"connectedDuration": primaryObs.Uptime,
+		"tunnel":            primaryObs,
 		"tunnels": map[string]interface{}{
 			"1": map[string]interface{}{
 				"id":            1,
 				"name":          "Tunnel 1",
-				"profile":       "desktop-commander",
+				"profile":       tunnelProfileName(1),
 				"port":          8080,
 				"state":         state1,
 				"ready":         obs1.Ready,
@@ -564,7 +579,7 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 			"2": map[string]interface{}{
 				"id":            2,
 				"name":          "Tunnel 2",
-				"profile":       "desktop-commander-2",
+				"profile":       tunnelProfileName(2),
 				"port":          8081,
 				"state":         state2,
 				"ready":         obs2.Ready,
@@ -608,10 +623,10 @@ func (s *Server) handleConnect(w http.ResponseWriter, r *http.Request) {
 
 	tunnelTarget := r.URL.Query().Get("tunnel")
 	if tunnelTarget == "2" {
-		s.connectTunnelSlot(w, r, tunnelBin, 2, "desktop-commander-2", 8081)
+		s.connectTunnelSlot(w, r, tunnelBin, 2, tunnelProfileName(2), 8081)
 		return
 	}
-	s.connectTunnelSlot(w, r, tunnelBin, 1, "desktop-commander", 8080)
+	s.connectTunnelSlot(w, r, tunnelBin, 1, tunnelProfileName(1), 8080)
 }
 
 func (s *Server) connectTunnelSlot(w http.ResponseWriter, r *http.Request, tunnelBin string, tunnelNum int, profile string, port int) {
@@ -655,7 +670,7 @@ func (s *Server) connectTunnelSlot(w http.ResponseWriter, r *http.Request, tunne
 
 	var cmd *exec.Cmd
 	if (mode == "local" || apiKey == "") && tunnelNum == 1 {
-		mcpBin, err := FindDesktopCommanderBinary()
+		mcpBin, err := FindA2MBinary()
 		if err != nil {
 			s.tunnelState = "Disconnected"
 			s.mu.Unlock()
@@ -853,7 +868,7 @@ func (s *Server) handleDiagnostics(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Content-Disposition", "attachment; filename=desktop-commander-diagnostics.json")
+	w.Header().Set("Content-Disposition", "attachment; filename=a2m-diagnostics.json")
 	_ = json.NewEncoder(w).Encode(diag)
 }
 
@@ -938,9 +953,10 @@ func generateID() string {
 }
 
 // handleTunnelCredential manages the OpenAI Runtime API key stored in macOS Keychain.
-//   GET    /api/credentials/tunnel  → {"configured":bool,"source":"keychain|environment|none"}
-//   POST   /api/credentials/tunnel  → body: {"api_key":"sk-..."} → {"status":"saved"}
-//   DELETE /api/credentials/tunnel  → {"status":"deleted"}
+//
+//	GET    /api/credentials/tunnel  → {"configured":bool,"source":"keychain|environment|none"}
+//	POST   /api/credentials/tunnel  → body: {"api_key":"sk-..."} → {"status":"saved"}
+//	DELETE /api/credentials/tunnel  → {"status":"deleted"}
 //
 // The actual key value is NEVER returned in responses.
 func (s *Server) handleTunnelCredential(w http.ResponseWriter, r *http.Request) {
@@ -987,7 +1003,7 @@ const dashboardHTML = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>A2M Desktop — Agent to Machine (Desktop Commander Native Multi-Party Control)</title>
+  <title>A2M Desktop — Agent to Machine (A2M Native Multi-Party Control)</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     :root {

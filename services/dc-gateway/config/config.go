@@ -30,7 +30,7 @@ func NewConfigManager(customPath string) *ConfigManager {
 		if err != nil {
 			homeDir = "."
 		}
-		customPath = filepath.Join(homeDir, ".desktop-commander", "config.json")
+		customPath = filepath.Join(homeDir, ".a2m", "config.json")
 	}
 
 	cm := &ConfigManager{

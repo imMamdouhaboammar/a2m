@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/desktop-commander/dc-gateway/mcp"
+	"github.com/imMamdouhaboammar/a2m/services/dc-gateway/mcp"
 )
 
 func TestCapabilityHTTPReportsRealRegistryWithoutSecrets(t *testing.T) {

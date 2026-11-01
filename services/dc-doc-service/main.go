@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/desktop-commander/dc-doc-service/docx"
-	"github.com/desktop-commander/dc-doc-service/excel"
-	"github.com/desktop-commander/dc-doc-service/pdf"
+	"github.com/imMamdouhaboammar/a2m/services/dc-doc-service/docx"
+	"github.com/imMamdouhaboammar/a2m/services/dc-doc-service/excel"
+	"github.com/imMamdouhaboammar/a2m/services/dc-doc-service/pdf"
 )
 
 func main() {

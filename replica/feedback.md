@@ -1,4 +1,4 @@
-# Desktop Commander Feedback & User Pain Point Analysis
+# A2M Feedback & User Pain Point Analysis
 
 Analysis of public issues, pull requests, and real-world usage patterns across macOS, Linux, and Windows deployments.
 

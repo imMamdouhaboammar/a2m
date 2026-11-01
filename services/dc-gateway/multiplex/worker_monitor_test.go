@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/desktop-commander/dc-gateway/process"
+	"github.com/imMamdouhaboammar/a2m/services/dc-gateway/process"
 )
 
 func shortWorkerTestSocket(t *testing.T) string {

@@ -17,4 +17,4 @@ The current desktop build script targets macOS 12+ on Apple Silicon. Rust and Go
 
 ## Third-party code
 
-Include license attribution and notices for any copied/adapted code or assets. Dependencies and linked upstream projects retain their own licenses. The project references Desktop Commander MCP as an inspiration, not as an automatic statement that all of its implementation is part of A2M.
+Include license attribution and notices for any copied/adapted code or assets. Dependencies and linked upstream projects retain their own licenses. Historical third-party research and attribution are documented separately; they are not A2M product names or indications of endorsement.
