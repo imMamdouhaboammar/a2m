@@ -220,9 +220,10 @@
         ? `${activeServers} approved server(s) providing ${activeTools} native tools`
         : "Each provider and tool requires local operator approval";
       $("#capability-servers-state").textContent = activeServers ? `${activeServers} ACTIVE` : "NONE APPROVED";
+      const approvedRepos = Number(graph.approved_repository_count) || 0;
       $("#capability-workspace").textContent = graph.workspace_configured
-        ? "Workspace boundary configured. Graph reads and indexing are restricted to the approved project."
-        : "No workspace configured. Code graph tools are not started. Configure capabilityWorkspace in the local gateway settings.";
+        ? `${approvedRepos} explicit repository root(s) approved. Each repository gets an isolated graph process and index. Configure capabilityWorkspaces to approve additional exact paths.`
+        : "No primary workspace configured. Configure capabilityWorkspace before using approved repositories.";
       const container = $("#capability-server-list");
       const list = document.createDocumentFragment();
       for (const server of servers) {

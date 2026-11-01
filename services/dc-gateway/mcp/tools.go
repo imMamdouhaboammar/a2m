@@ -32,6 +32,9 @@ type Registry struct {
 	recentCalls       []map[string]interface{}
 	mu                sync.RWMutex
 	graphProcess      *graphProxy
+	graphProcesses    map[string]*graphProxy
+	graphExecutable   string
+	graphMu           sync.Mutex
 	externalProcesses []*graphProxy
 	externalActive    map[string]int
 }

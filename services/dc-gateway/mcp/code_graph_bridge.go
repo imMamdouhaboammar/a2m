@@ -192,12 +192,8 @@ func (p *graphProxy) callTool(name string, raw json.RawMessage, timeout time.Dur
 			if clean == ".." || strings.HasPrefix(clean, ".."+string(filepath.Separator)) {
 				return ErrorResult("changed_files path escapes workspace"), nil
 			}
-			abs := filepath.Join(p.root, clean)
-			if resolved, err := filepath.EvalSymlinks(abs); err == nil {
-				relative, err := filepath.Rel(p.root, resolved)
-				if err != nil || relative == ".." || strings.HasPrefix(relative, ".."+string(filepath.Separator)) {
-					return ErrorResult("changed_files symlink escapes workspace"), nil
-				}
+			if !graphPathWithinRoot(p.root, clean) {
+				return ErrorResult("changed_files symlink escapes workspace"), nil
 			}
 		}
 	}
@@ -210,6 +206,30 @@ func (p *graphProxy) callTool(name string, raw json.RawMessage, timeout time.Dur
 		return ErrorResult("invalid MCP tool response"), nil
 	}
 	return output, nil
+}
+
+// Check existing ancestors as well as the final path. A missing target or
+// dangling symlink must not bypass containment through EvalSymlinks failure.
+func graphPathWithinRoot(root, relative string) bool {
+	path := filepath.Join(root, relative)
+	for {
+		resolved, err := filepath.EvalSymlinks(path)
+		if err == nil {
+			rel, err := filepath.Rel(root, resolved)
+			return err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
+		}
+		if !os.IsNotExist(err) {
+			return false
+		}
+		if info, err := os.Lstat(path); err == nil && info.Mode()&os.ModeSymlink != 0 {
+			return false
+		}
+		parent := filepath.Dir(path)
+		if parent == path {
+			return false
+		}
+		path = parent
+	}
 }
 
 func safeGraphEnv() []string {
@@ -228,10 +248,15 @@ func safeGraphEnv() []string {
 }
 
 func (r *Registry) Close() {
-	if r != nil && r.graphProcess != nil {
-		r.graphProcess.Close()
-	}
 	if r != nil {
+		r.graphMu.Lock()
+		for _, proxy := range r.graphProcesses {
+			proxy.Close()
+		}
+		if r.graphProcess != nil {
+			r.graphProcess.Close()
+		}
+		r.graphMu.Unlock()
 		for _, provider := range r.externalProcesses {
 			provider.Close()
 		}
@@ -270,6 +295,90 @@ func (r *Registry) capabilityWorkspace() string {
 	return canonical
 }
 
+// graphProxyForArgs enforces exact operator-approved repository roots.
+// Each repository has its own process and generated index; we never retarget
+// an existing process to a different repository.
+func (r *Registry) graphProxyForArgs(raw json.RawMessage) (*graphProxy, error) {
+	primary := r.capabilityWorkspace()
+	if primary == "" || r.graphProcess == nil {
+		return nil, errors.New("Code Review Graph workspace is not configured")
+	}
+	selected := primary
+	if len(raw) > 0 && string(raw) != "null" {
+		var args map[string]json.RawMessage
+		if err := json.Unmarshal(raw, &args); err != nil || args == nil {
+			return nil, errors.New("graph arguments must be an object")
+		}
+		if value, exists := args["repo_root"]; exists && string(value) != "null" {
+			var requested string
+			if json.Unmarshal(value, &requested) != nil {
+				return nil, errors.New("invalid repo_root")
+			}
+			if requested != "" {
+				canonical, err := filepath.EvalSymlinks(requested)
+				if err != nil {
+					return nil, errors.New("repo_root is outside the approved A2M workspaces")
+				}
+				selected = canonical
+			}
+		}
+	}
+	if selected != primary {
+		approved := false
+		if r.configMgr != nil {
+			for _, root := range r.configMgr.GetConfig().CapabilityWorkspaces {
+				canonical, err := filepath.EvalSymlinks(root)
+				if err == nil && canonical == selected {
+					approved = true
+					break
+				}
+			}
+		}
+		if !approved {
+			return nil, errors.New("repo_root is outside the approved A2M workspaces")
+		}
+	}
+	r.graphMu.Lock()
+	defer r.graphMu.Unlock()
+	if selected == primary {
+		return r.graphProcess, nil
+	}
+	if existing := r.graphProcesses[selected]; existing != nil {
+		return existing, nil
+	}
+	if r.graphExecutable == "" {
+		return nil, errors.New("Code Review Graph executable unavailable")
+	}
+	proxy, err := startCodeGraphProxy(selected, r.graphExecutable)
+	if err != nil {
+		return nil, fmt.Errorf("Code Review Graph launch failed: %w", err)
+	}
+	if r.graphProcesses == nil {
+		r.graphProcesses = make(map[string]*graphProxy)
+	}
+	r.graphProcesses[selected] = proxy
+	return proxy, nil
+}
+
+func startCodeGraphProxy(workspace, executable string) (*graphProxy, error) {
+	allow := append(append([]string{}, graphReadTools...), "build_or_update_graph_tool")
+	cmd := exec.Command(executable, "serve", "--repo", workspace, "--tools", strings.Join(allow, ","))
+	cmd.Dir = workspace
+	cmd.Env = safeGraphEnv()
+	privateIndex, cleanup, indexErr := createGraphTemporaryIndex(workspace)
+	if indexErr != nil {
+		return nil, fmt.Errorf("private graph index unavailable: %w", indexErr)
+	}
+	cmd.Env = append(withoutGitIndexEnv(cmd.Env), "GIT_INDEX_FILE="+privateIndex)
+	proxy, err := startGraphProcess(cmd, workspace)
+	if err != nil {
+		cleanup()
+		return nil, err
+	}
+	proxy.tempIndex, proxy.cleanup = privateIndex, cleanup
+	return proxy, nil
+}
+
 func (r *Registry) suppressLegacyGraph() {
 	legacy := map[string]bool{"index_codebase": true, "get_architecture": true, "query_symbols": true, "trace_call_path": true, "assess_impact": true, "correlate_error": true}
 	kept := make([]ToolDefinition, 0, len(r.tools))
@@ -301,22 +410,12 @@ func (r *Registry) registerCodeReviewGraph() {
 	if err != nil {
 		return
 	}
-	allow := append(append([]string{}, graphReadTools...), "build_or_update_graph_tool")
-	cmd := exec.Command(executable, "serve", "--repo", workspace, "--tools", strings.Join(allow, ","))
-	cmd.Dir = workspace
-	cmd.Env = safeGraphEnv()
-	privateIndex, cleanup, indexErr := createGraphTemporaryIndex(workspace)
-	if indexErr == nil {
-		cmd.Env = append(withoutGitIndexEnv(cmd.Env), "GIT_INDEX_FILE="+privateIndex)
-	}
-	proxy, err := startGraphProcess(cmd, workspace)
+	proxy, err := startCodeGraphProxy(workspace, executable)
 	if err != nil {
-		if cleanup != nil {
-			cleanup()
-		}
 		return
 	}
-	proxy.tempIndex, proxy.cleanup = privateIndex, cleanup
+	r.graphExecutable = executable
+	r.graphProcesses = map[string]*graphProxy{workspace: proxy}
 	discovered, err := proxy.listTools()
 	if err != nil {
 		proxy.Close()
@@ -338,30 +437,42 @@ func (r *Registry) registerCodeReviewGraph() {
 			continue
 		}
 		definition.Name = "crg_" + original
-		definition.Description = "Local, workspace-scoped Code Review Graph: " + definition.Description
+		definition.Description = "Local, explicitly approved repository Code Review Graph: " + definition.Description
 		toolName := original
 		r.register(definition, func(args json.RawMessage) (ToolCallResult, error) {
-			return proxy.callTool(toolName, args, 30*time.Second)
+			selected, err := r.graphProxyForArgs(args)
+			if err != nil {
+				return ErrorResult(err.Error()), nil
+			}
+			return selected.callTool(toolName, args, 30*time.Second)
 		})
 	}
 	if foundRefresh {
 		r.register(ToolDefinition{
 			Name:        "code_graph_refresh",
-			Description: "Index the approved A2M workspace with installed Code Review Graph. Mutates only its generated graph index; never modifies source files.",
+			Description: "Index the exact approved repository (default A2M workspace). Mutates only that repository's generated graph index, never source files.",
 			InputSchema: map[string]interface{}{
-				"type":                 "object",
-				"properties":           map[string]interface{}{"full_rebuild": map[string]interface{}{"type": "boolean", "default": false}},
+				"type": "object",
+				"properties": map[string]interface{}{
+					"full_rebuild": map[string]interface{}{"type": "boolean", "default": false},
+					"repo_root":    map[string]interface{}{"type": "string", "description": "Exact operator-approved canonical repository root; omit for default workspace"},
+				},
 				"additionalProperties": false,
 			},
 		}, func(args json.RawMessage) (ToolCallResult, error) {
 			var input struct {
-				FullRebuild bool `json:"full_rebuild"`
+				FullRebuild bool   `json:"full_rebuild"`
+				RepoRoot    string `json:"repo_root"`
 			}
 			if len(args) > 0 && json.Unmarshal(args, &input) != nil {
 				return ErrorResult("invalid refresh arguments"), nil
 			}
+			selected, err := r.graphProxyForArgs(args)
+			if err != nil {
+				return ErrorResult(err.Error()), nil
+			}
 			payload, _ := json.Marshal(map[string]interface{}{"full_rebuild": input.FullRebuild})
-			return proxy.callTool("build_or_update_graph_tool", payload, 120*time.Second)
+			return selected.callTool("build_or_update_graph_tool", payload, 120*time.Second)
 		})
 	}
 	if r.codeGraphToolCount() > 0 {

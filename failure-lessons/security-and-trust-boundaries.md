@@ -250,3 +250,20 @@ All FL items
 
 ### Status
 **Codified Invariant**
+
+
+---
+
+## FL-018: Single-Root Code Graph Denied Independently Authorized Repositories
+
+**Observed:** A2M's native Code Review Graph adapter forced every `repo_root` to the one configured `capabilityWorkspace`. Attempting to inspect either FunnelScript repository yielded `repo_root is outside the approved A2M workspace`. The rejection was an intentional old security rule, but it prevented simultaneous review of separate approved projects.
+
+**Resolution:** Add a distinct `capabilityWorkspaces` exact-root allowlist, retain the original default, and lazily launch a separately isolated Code Review Graph MCP process plus temporary Git index for each extra root. Validate canonical paths against the allowlist rather than accepting parents, wildcard roots or arbitrary directories. A selected root still passes through the proxy's independent enforcement before upstream `tools/call`. The existing filesystem `allowedDirectories` and source mutation privileges are not broadened.
+
+**Additional discovered security defect:** Existing `changed_files` validation checked `filepath.EvalSymlinks(path)` only when resolution succeeded. A dangling symlink pointing outside the workspace made resolution fail and was silently admitted. The new test reproduced the bypass before correction. Check the nearest resolvable existing ancestor and reject a dangling symlink. Reject other non-ENOENT errors fail-closed.
+
+**Tests:** `TestApprovedGraphRepositoriesPersistAndRequireExistingDirectories`, `TestExplicitApprovedGraphRepositoriesAreRoutedIntoIsolatedProcesses`, `TestNativeGraphAdapterIsWorkspaceBound`, and the opt-in `TestRealGraphBackendSupportsApprovedSecondaryRepository` (real Code Review Graph against two temporary Git repositories). Go, Rust, documentation and MCP E2E regression tests also passed.
+
+**External prerequisite, not an A2M graph bug:** `codex login status` returned `Not logged in`; the prior `codex review` HTTP 401 cannot be repaired by widening A2M's file access or disabling remote authentication. The user must authenticate interactively with Codex. Native Code Review Graph read tooling does not certify an independent AI code review.
+
+**Activation boundary:** Upgraded gateway binaries and saved approved-root settings require the existing MCP worker to reconnect before that running worker exposes new behavior. A successful isolated gateway acceptance test does not by itself establish an already-running tunnel has reloaded.

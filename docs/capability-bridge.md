@@ -13,8 +13,8 @@ A2M is an MCP capability bridge, not an autonomous AI agent. The AI client perfo
 - `skills_find`: lazy searchable metadata from local `SKILL.md` folders. The tool does not install or execute skills.
 - `skills_read`: reads one skill by an opaque root-scoped id. Symlinks and traversal outside the approved skill root are rejected; file size capped at 48 KiB.
 - `mcp_servers_list`: names and scope from locally configured MCP servers. No credentials, environment values, command lines, or launch arguments are emitted. Third-party servers remain disabled pending explicit approval.
-- `crg_*`: 21 native tools proxied from the installed Code Review Graph MCP subprocess. Each tool retains the upstream schema; arguments are workspace-bound by forcing `repo_root`, and `changed_files` traversal is rejected.
-- `code_graph_refresh`: asks Code Review Graph to build or refresh the generated index for the approved workspace, without changing project source files.
+- `crg_*`: 21 native tools proxied from the installed Code Review Graph MCP service. `repo_root` may select an exact operator-approved repository root; each root gets its own lazily started local process and private Git index. Unapproved roots and `changed_files` traversal/symlink escapes are rejected. Omitted `repo_root` retains the primary workspace.
+- `code_graph_refresh`: refreshes the primary workspace by default or the exact approved `repo_root` when supplied (new clients must refresh the MCP tool schema). It does not modify project source files or the real Git index.
 - `/api/capabilities`: current sanitized inventory for macOS Settings. Page displays real data and distinguishes discovered from enabled.
 - When the native CRG adapter launches successfully, the six unsafe legacy heuristic graph tools are removed from the MCP listing: `index_codebase`, `get_architecture`, `query_symbols`, `trace_call_path`, `assess_impact`, `correlate_error`. The independent ADR tool remains.
 - Local gateway stops and disposes of its graph child process on orderly shutdown.
@@ -25,11 +25,17 @@ The selected project is stored in the local gateway configuration:
 
 ```json
 {
-  "capabilityWorkspace": "/path/to/your/project"
+  "capabilityWorkspace": "/path/to/your/a2m-project",
+  "capabilityWorkspaces": [
+    "/path/to/your/second-project",
+    "/path/to/your/third-project"
+  ]
 }
 ```
 
-The A2M Go config manager uses `~/.a2m/config.json` for this setting. The `A2M_WORKSPACE_ROOT` environment variable can override it for isolated testing.
+The A2M Go config manager uses `~/.a2m/config.json`. `capabilityWorkspace` remains the default root; `capabilityWorkspaces` is an **explicit** extra-root allowlist (up to 16 unique existing absolute directories, canonicalized through symlinks). You can set it through the authorized `set_config_value` tool without approving the parent directory. Each requested `repo_root` must match the canonical root of one of these entries exactly. Unknown paths, parents, siblings and symlink escapes remain inaccessible to the graph adapter. Updating the allowlist in a running upgraded gateway takes effect on the next graph request; installing upgraded binaries requires a controlled worker reconnection first.
+
+Use `A2M_WORKSPACE_ROOT` to override only the default root for isolated tests. The extra list does **not** change `allowedDirectories` and is not an authorization to edit any repository. Independent repositories have independent on-demand CRG processes and private indexes. `code_graph_refresh` can target an extra root after clients refresh its tool schema; existing `crg_*` tools already accept `repo_root`.
 
 Code Review Graph 2.3.6 normally performs full builds using Git-tracked files. A2M prepares a **private temporary Git index** containing intent-to-add entries for untracked source files. This index is passed only to the CRG process through `GIT_INDEX_FILE`. The real `.git/index` stays untouched. The private index is rebuilt before each graph refresh to include newly added files.
 
@@ -129,3 +135,20 @@ The adapter is intentionally **off by default**. To enable a trusted provider, t
 - Local skills are discoverable/readable but are untrusted instructions, not executable MCP tools by themselves.
 - The Code Review Graph backend still has no semantic embeddings; its native graph and structural queries work.
 - Managed tunnel-client persistence across a macOS reboot still needs an independently verified supervisor.
+
+
+## Approved multi-repository graph routing — 2026-11-01
+
+**Previously observed failure:** Calling `crg_get_minimal_context_tool` for `/Users/mamdouhaboammar/Documents/funnelscript` returned `repo_root is outside the approved A2M workspace` because the gateway only bound Code Review Graph to `capabilityWorkspace=/Users/mamdouhaboammar/Documents/antigravity/clever-hypatia`. This was the intended old single-root security boundary, not a broken graph index.
+
+**Fix:** Backward-compatible `capabilityWorkspaces` allowlist supplies explicitly approved additional exact roots. The gateway selects a dedicated graph subprocess and its own private Git index for each approved root, lazily on the first read/refresh. No default-root change, wildcard parent approval or global filesystem enablement. `changed_files` inputs continue to reject absolute and traversing paths, with an added missing-target/dangling-symlink ancestor check. The Code Review Graph tool schema still supports `repo_root`; `code_graph_refresh` now also accepts an optional `repo_root` in newly registered MCP schemas. The current `allowedDirectories` filesystem policy is unchanged.
+
+**Operator configuration for this machine:** Preserve `capabilityWorkspace` as the A2M repository and add these exact extra roots (without approving their common parent):
+- `/Users/mamdouhaboammar/Documents/funnelscript`
+- `/Users/mamdouhaboammar/Documents/funnelscript-research`
+
+**Actual verification:** Config allowlist persisted and rejected duplicates/nonexistent directories; fake MCP subprocess tests exercised both approved roots, cached separate processes, default compatibility, unauthorized path rejection and dangling-symlink rejection; real installed Code Review Graph subprocess successfully built and queried a second *temporary* Git repository via the new exact-root route, and rejected `/etc`. Go tests, vet, Rust tests, document service and JS syntax check passed. The real integration test is opt-in via `A2M_TEST_REAL_GRAPH=1 go test ./mcp -run TestRealGraphBackendSupportsApprovedSecondaryRepository -count=1 -v` to avoid invoking extra external processes during ordinary Go tests.
+
+**Codex Review boundary:** A separate `codex review` failure returned HTTP 401. A local, credential-free `codex login status` check confirmed `Not logged in` on this Mac. This is an external Codex authentication requirement, not something A2M graph routing can or should bypass. The operator must complete `codex login` in an authorized interactive local terminal and confirm `codex login status` before independent AI review can run. A2M Code Review Graph can still supply structural review context without Codex login, but does not replace independent AI review sign-off. Never copy credentials into repository files, chatbot logs or process arguments.
+
+**Activation:** Once the tested new gateway binary is installed, a controlled reconnect of the affected MCP worker is needed to load the updated schema/handlers. An existing ChatGPT session may retain its previous `code_graph_refresh` schema, so new clients may need to refresh their A2M MCP tool registration. Do not kill an active tunnel solely to change a graph allowlist. Indexes may need an explicit first `code_graph_refresh` after a new project is approved.

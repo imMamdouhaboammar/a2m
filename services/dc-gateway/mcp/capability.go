@@ -284,11 +284,23 @@ func (r *Registry) registerCapabilities() {
 		InputSchema: emptySchema,
 	}, func(_ json.RawMessage) (ToolCallResult, error) {
 		_, crgExists := exec.LookPath("code-review-graph")
+		defaultRoot := r.capabilityWorkspace()
+		approvedCount := 0
+		if defaultRoot != "" {
+			approvedCount++
+		}
+		if r.configMgr != nil {
+			for _, candidate := range r.configMgr.GetConfig().CapabilityWorkspaces {
+				if candidate != defaultRoot {
+					approvedCount++
+				}
+			}
+		}
 		return jsonText(map[string]interface{}{
 			"local_skills":      map[string]interface{}{"count": len(discoverSkills(r.capabilityWorkspace())), "status": "discoverable_on_demand", "execution": "not_auto_enabled"},
 			"external_mcp":      map[string]interface{}{"count": len(listDiscoveredMCPServers()), "active_tools": len(r.externalToolNames()), "active_servers": len(r.externalActive), "status": "opt_in_only", "credentials": "not_exposed"},
-			"code_review_graph": map[string]interface{}{"installed": crgExists == nil, "workspace_configured": r.capabilityWorkspace() != "", "native_tools": r.codeGraphToolCount()},
-			"policy":            "Third-party MCP execution is opt-in; skills are instructions, never auto-executed; code graph tools are workspace-bound.",
+			"code_review_graph": map[string]interface{}{"installed": crgExists == nil, "workspace_configured": defaultRoot != "", "approved_repository_count": approvedCount, "native_tools": r.codeGraphToolCount()},
+			"policy":            "Third-party MCP execution is opt-in; skills are instructions, never auto-executed; code graph repositories require explicit exact-root approval.",
 		}), nil
 	})
 
