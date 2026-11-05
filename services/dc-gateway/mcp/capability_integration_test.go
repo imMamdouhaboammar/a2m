@@ -54,8 +54,11 @@ func TestCapabilityBridgeDiscoveryAndSafeDefaults(t *testing.T) {
 		t.Fatalf("mcp_servers_list failed: %+v", list)
 	}
 	payload := list.Content[0].Text
-	if !strings.Contains(payload, "sentry") || !strings.Contains(payload, "local-helper") {
-		t.Fatalf("missing discovered servers: %s", payload)
+	if !strings.Contains(payload, "sentry") {
+		t.Fatalf("missing user-scoped server: %s", payload)
+	}
+	if strings.Contains(payload, "local-helper") {
+		t.Fatalf("foreign-project MCP server must not appear in this workspace: %s", payload)
 	}
 	for _, forbidden := range []string{secret, "SENTRY_AUTH_TOKEN", "hidden-arg", "/tmp/other"} {
 		if strings.Contains(payload, forbidden) {

@@ -24,6 +24,9 @@ dist/
 *.tmp
 *.bak
 
+# Local workspace MCP configuration can contain user-specific paths or secrets
+.mcp.json
+
 # Local credential material
 *.p12
 *.pfx

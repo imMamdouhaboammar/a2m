@@ -9,13 +9,14 @@ import (
 )
 
 type ServerConfig struct {
-	AllowedDirectories  []string `json:"allowedDirectories"`
-	CapabilityWorkspace string   `json:"capabilityWorkspace,omitempty"`
-	BlockedCommands     []string `json:"blockedCommands"`
-	CommandTimeoutMs    int      `json:"commandTimeoutMs"`
-	FileReadLineLimit   int      `json:"fileReadLineLimit"`
-	MaxSearchResults    int      `json:"maxSearchResults"`
-	Shell               string   `json:"shell"`
+	AllowedDirectories   []string `json:"allowedDirectories"`
+	CapabilityWorkspace  string   `json:"capabilityWorkspace,omitempty"`
+	CapabilityWorkspaces []string `json:"capabilityWorkspaces,omitempty"`
+	BlockedCommands      []string `json:"blockedCommands"`
+	CommandTimeoutMs     int      `json:"commandTimeoutMs"`
+	FileReadLineLimit    int      `json:"fileReadLineLimit"`
+	MaxSearchResults     int      `json:"maxSearchResults"`
+	Shell                string   `json:"shell"`
 }
 
 type ConfigManager struct {
@@ -149,6 +150,43 @@ func (cm *ConfigManager) SetValue(key string, val interface{}) error {
 			workspace = canonical
 		}
 		cm.config.CapabilityWorkspace = workspace
+	case "capabilityWorkspaces":
+		var requested []string
+		switch typed := val.(type) {
+		case []string:
+			requested = typed
+		case []interface{}:
+			for _, item := range typed {
+				s, ok := item.(string)
+				if !ok {
+					return fmt.Errorf("capabilityWorkspaces entries must be strings")
+				}
+				requested = append(requested, s)
+			}
+		default:
+			return fmt.Errorf("invalid type for capabilityWorkspaces")
+		}
+		if len(requested) > 16 {
+			return fmt.Errorf("capabilityWorkspaces exceeds 16 approved roots")
+		}
+		canonicalRoots := make([]string, 0, len(requested))
+		seen := make(map[string]bool, len(requested))
+		for _, requestedRoot := range requested {
+			if !filepath.IsAbs(requestedRoot) {
+				return fmt.Errorf("capabilityWorkspaces entries must be absolute")
+			}
+			canonical, err := filepath.EvalSymlinks(requestedRoot)
+			if err != nil {
+				return fmt.Errorf("capabilityWorkspaces root unavailable: %w", err)
+			}
+			info, err := os.Stat(canonical)
+			if err != nil || !info.IsDir() || seen[canonical] {
+				return fmt.Errorf("capabilityWorkspaces requires unique existing directories")
+			}
+			seen[canonical] = true
+			canonicalRoots = append(canonicalRoots, canonical)
+		}
+		cm.config.CapabilityWorkspaces = canonicalRoots
 	case "allowedDirectories":
 		if arr, ok := val.([]interface{}); ok {
 			var res []string
