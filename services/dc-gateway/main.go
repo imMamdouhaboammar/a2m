@@ -22,7 +22,7 @@ import (
 const (
 	ProtocolVersion = "2024-11-05"
 	ServerName      = "io.github.a2m/a2m-mcp"
-	ServerVersion   = "1.0.0"
+	ServerVersion   = "1.1.0"
 )
 
 func getSessionSocketPath() string {

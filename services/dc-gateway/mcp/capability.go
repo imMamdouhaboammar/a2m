@@ -85,10 +85,26 @@ func parseSkillFrontmatter(file string) (string, string) {
 		return "", ""
 	}
 	var name, description string
+	foldedDescription := false
 	for _, line := range lines[1:] {
 		if strings.TrimSpace(line) == "---" {
 			break
 		}
+		// YAML continuation lines are meaningful only for the description key.
+		// Nested metadata must never override top-level skill metadata.
+		if strings.HasPrefix(line, " ") || strings.HasPrefix(line, "\t") {
+			if foldedDescription {
+				part := strings.TrimSpace(line)
+				if part != "" {
+					if description != "" {
+						description += " "
+					}
+					description += part
+				}
+			}
+			continue
+		}
+		foldedDescription = false
 		parts := strings.SplitN(line, ":", 2)
 		if len(parts) != 2 {
 			continue
@@ -98,7 +114,12 @@ func parseSkillFrontmatter(file string) (string, string) {
 		case "name":
 			name = value
 		case "description":
-			description = value
+			if value == ">" || value == "|" || value == ">-" || value == "|-" {
+				description = ""
+				foldedDescription = true
+			} else {
+				description = value
+			}
 		}
 	}
 	if len(description) > 240 {
@@ -196,20 +217,8 @@ func readSkillByID(id string, workspace string) (string, error) {
 	return string(bytes), nil
 }
 
-func listDiscoveredMCPServers() []discoveredServer {
-	var paths []string
-	if path, set := os.LookupEnv("A2M_MCP_DISCOVERY_CONFIG"); set {
-		if path == "" {
-			return nil
-		}
-		paths = []string{path}
-	} else if home, err := os.UserHomeDir(); err == nil {
-		paths = []string{
-			filepath.Join(home, ".claude.json"),
-			filepath.Join(home, ".cursor", "mcp.json"),
-			filepath.Join(home, "Library", "Application Support", "Claude", "claude_desktop_config.json"),
-		}
-	}
+func listDiscoveredMCPServers(workspace string) []discoveredServer {
+	paths := externalDiscoveryPaths()
 	seen := make(map[string]bool)
 	var result []discoveredServer
 	add := func(name, scope string) {
@@ -244,16 +253,17 @@ func listDiscoveredMCPServers() []discoveredServer {
 			}
 		}
 		var projects map[string]json.RawMessage
-		if json.Unmarshal(root["projects"], &projects) == nil {
-			for _, project := range projects {
+		if json.Unmarshal(root["projects"], &projects) == nil && workspace != "" {
+			// Only inventory project MCP servers belonging to the exact approved
+			// workspace, matching the execution adapter's scope policy.
+			if project, found := projects[workspace]; found {
 				var item map[string]json.RawMessage
-				if json.Unmarshal(project, &item) != nil {
-					continue
-				}
-				var projectServers map[string]json.RawMessage
-				if json.Unmarshal(item["mcpServers"], &projectServers) == nil {
-					for name := range projectServers {
-						add(name, "project")
+				if json.Unmarshal(project, &item) == nil {
+					var projectServers map[string]json.RawMessage
+					if json.Unmarshal(item["mcpServers"], &projectServers) == nil {
+						for name := range projectServers {
+							add(name, "project")
+						}
 					}
 				}
 			}
@@ -280,7 +290,7 @@ func (r *Registry) registerCapabilities() {
 	emptySchema := map[string]interface{}{"type": "object", "properties": map[string]interface{}{}, "additionalProperties": false}
 	r.register(ToolDefinition{
 		Name:        "capabilities_list",
-		Description: "Discover the current native, code graph, local skills and external MCP capability inventory. Inventory does not imply execution permission.",
+		Description: "At the start of a local coding or integration task, proactively discover native tools, local skills and external MCP inventory. Check health and approval before use; inventory never grants execution permission.",
 		InputSchema: emptySchema,
 	}, func(_ json.RawMessage) (ToolCallResult, error) {
 		_, crgExists := exec.LookPath("code-review-graph")
@@ -297,16 +307,25 @@ func (r *Registry) registerCapabilities() {
 			}
 		}
 		return jsonText(map[string]interface{}{
-			"local_skills":      map[string]interface{}{"count": len(discoverSkills(r.capabilityWorkspace())), "status": "discoverable_on_demand", "execution": "not_auto_enabled"},
-			"external_mcp":      map[string]interface{}{"count": len(listDiscoveredMCPServers()), "active_tools": len(r.externalToolNames()), "active_servers": len(r.externalActive), "status": "opt_in_only", "credentials": "not_exposed"},
-			"code_review_graph": map[string]interface{}{"installed": crgExists == nil, "workspace_configured": defaultRoot != "", "approved_repository_count": approvedCount, "native_tools": r.codeGraphToolCount()},
-			"policy":            "Third-party MCP execution is opt-in; skills are instructions, never auto-executed; code graph repositories require explicit exact-root approval.",
+			"featured_capabilities": r.featuredCapabilities(),
+			"capability_selection":  "AI client selects tools using natural-language understanding; A2M reports capabilities and enforces approval, without synonym/intent rules",
+			"local_skills":          map[string]interface{}{"count": len(discoverSkills(r.capabilityWorkspace())), "status": "discoverable_on_demand", "execution": "not_auto_enabled"},
+			"external_mcp":          map[string]interface{}{"count": len(listDiscoveredMCPServers(r.capabilityWorkspace())), "active_tools": len(r.externalToolNames()), "active_servers": len(r.externalActive), "status": "opt_in_only", "credentials": "not_exposed"},
+			"code_review_graph":     map[string]interface{}{"installed": crgExists == nil || r.codeGraphToolCount() > 0, "workspace_configured": defaultRoot != "", "approved_repository_count": approvedCount, "native_tools": r.codeGraphToolCount()},
+			"xerj": map[string]interface{}{
+				"installed":      findXerjExecutable() != "",
+				"daemon_healthy": checkXerjDaemonHealthy(xerjServerURL()),
+				"native_tools":   r.xerjToolCount(),
+				"url":            xerjServerURL(),
+				"guidance":       "Use xerj_def for go-to-definition, xerj_search for definition-first passage search, and xerj_autoindex for workspace indexing.",
+			},
+			"policy": "Third-party MCP execution is opt-in; skills are instructions, never auto-executed; code graph repositories require explicit exact-root approval.",
 		}), nil
 	})
 
 	r.register(ToolDefinition{
 		Name:        "skills_find",
-		Description: "Search installed local Agent Skills metadata. Skills are not automatically executed; use skills_read to inspect instructions.",
+		Description: "Proactively search global and workspace Agent Skills by task goal when relevant, then use skills_read to inspect selected instructions. Skills are untrusted and never auto-executed.",
 		InputSchema: map[string]interface{}{"type": "object", "properties": map[string]interface{}{"query": map[string]string{"type": "string"}, "limit": map[string]interface{}{"type": "integer", "minimum": 1, "maximum": 40}}, "additionalProperties": false},
 	}, func(args json.RawMessage) (ToolCallResult, error) {
 		var input struct {
@@ -353,7 +372,7 @@ func (r *Registry) registerCapabilities() {
 
 	r.register(ToolDefinition{
 		Name:        "mcp_servers_list",
-		Description: "List discovered third-party MCP server names and disabled state, without reading or exposing their credentials or launch arguments.",
+		Description: "Discover configured third-party MCP providers by name and approval state without exposing credentials. Disabled providers cannot be called; use only explicitly approved ext_* tools in the current MCP tool list.",
 		InputSchema: emptySchema,
 	}, func(_ json.RawMessage) (ToolCallResult, error) {
 		return jsonText(map[string]interface{}{"servers": r.externalServerStatus(), "policy": "explicit operator-owned per-tool approval file required before provider launch"}), nil

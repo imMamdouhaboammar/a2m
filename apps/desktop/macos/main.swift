@@ -58,7 +58,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNavigati
 
     func setupStatusMenu() {
         let menu = NSMenu()
-        let titleItem = NSMenuItem(title: "A2M Desktop v1.0.0 (Agent to Machine)", action: nil, keyEquivalent: "")
+        let titleItem = NSMenuItem(title: "A2M Desktop v1.1.0 (Agent to Machine)", action: nil, keyEquivalent: "")
         titleItem.isEnabled = false
         menu.addItem(titleItem)
         menu.addItem(NSMenuItem.separator())

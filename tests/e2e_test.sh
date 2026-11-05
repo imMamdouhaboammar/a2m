@@ -66,7 +66,7 @@ fi
 
 # Check 2: tools/list
 if grep -q '"name":"start_process"' "${RESPONSE_LOG}" && grep -q '"name":"edit_block"' "${RESPONSE_LOG}"; then
-    echo "✓ Check 2: tools/list advertised core tools"
+    echo "✓ Check 2: tools/list advertised core tools (XERJ is optional)"
 else
     echo "✗ Check 2 failed: tools/list missing core tools" >&2
     exit 1
@@ -170,6 +170,11 @@ capabilities = payload(15)
 assert isinstance(capabilities.get("code_review_graph"), dict), capabilities
 assert capabilities.get("local_skills", {}).get("execution") == "not_auto_enabled", capabilities
 assert isinstance(capabilities.get("policy"), str), capabilities
+assert isinstance(capabilities.get("xerj", {}).get("installed"), bool), capabilities
+assert isinstance(capabilities.get("featured_capabilities"), list), capabilities
+assert [c.get("id") for c in capabilities["featured_capabilities"]] == ["omni-skill", "xerj", "rea"], capabilities
+if capabilities["xerj"].get("native_tools", 0) > 0:
+    assert "xerj_search" in tool_list, "XERJ advertised native tools but xerj_search was absent"
 
 servers = payload(16)
 assert "servers" in servers and "policy" in servers, servers

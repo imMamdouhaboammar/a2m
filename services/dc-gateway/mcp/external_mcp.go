@@ -277,7 +277,7 @@ func (r *Registry) externalToolNames() []string {
 }
 
 func (r *Registry) externalServerStatus() []discoveredServer {
-	servers := listDiscoveredMCPServers()
+	servers := listDiscoveredMCPServers(r.capabilityWorkspace())
 	for i := range servers {
 		id := externalServerID(servers[i].Name, servers[i].Source)
 		if r.externalActive[id] > 0 {

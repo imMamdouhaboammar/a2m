@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -325,7 +326,7 @@ func (s *Server) handleMessage(w http.ResponseWriter, r *http.Request) {
 				},
 				ServerInfo: mcp.ServerInfo{
 					Name:    "io.github.a2m/a2m-mcp",
-					Version: "1.0.0",
+					Version: "1.1.0",
 				},
 				Instructions: "A2M (Agent to Machine) Multi-Party Server provides terminal execution, fast search, and surgical file editing under user control.",
 			},
@@ -491,10 +492,28 @@ func tunnelProfileName(slot int) string {
 		if override := strings.TrimSpace(os.Getenv("A2M_TUNNEL_PROFILE_2")); override != "" {
 			return override
 		}
+		if home, err := os.UserHomeDir(); err == nil {
+			a2mPath := filepath.Join(home, ".config", "tunnel-client", "a2m-2.yaml")
+			if _, err := os.Stat(a2mPath); err != nil {
+				legacyPath := filepath.Join(home, ".config", "tunnel-client", "desktop-commander-2.yaml")
+				if _, legErr := os.Stat(legacyPath); legErr == nil {
+					return "desktop-commander-2"
+				}
+			}
+		}
 		return "a2m-2"
 	}
 	if override := strings.TrimSpace(os.Getenv("A2M_TUNNEL_PROFILE_1")); override != "" {
 		return override
+	}
+	if home, err := os.UserHomeDir(); err == nil {
+		a2mPath := filepath.Join(home, ".config", "tunnel-client", "a2m.yaml")
+		if _, err := os.Stat(a2mPath); err != nil {
+			legacyPath := filepath.Join(home, ".config", "tunnel-client", "desktop-commander.yaml")
+			if _, legErr := os.Stat(legacyPath); legErr == nil {
+				return "desktop-commander"
+			}
+		}
 	}
 	return "a2m"
 }
@@ -854,7 +873,7 @@ func (s *Server) handleDiagnostics(w http.ResponseWriter, r *http.Request) {
 		"device": map[string]string{
 			"hostname": hostname,
 			"platform": observedPlatform(),
-			"release":  "A2M v1.0.0 Native (Agent to Machine)",
+			"release":  "A2M v1.1.0 Native (Agent to Machine)",
 		},
 		"sidecars":        observableSidecars(),
 		"tunnel":          observeTunnelClient(),

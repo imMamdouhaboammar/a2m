@@ -239,7 +239,7 @@ func safeGraphEnv() []string {
 		upper := strings.ToUpper(name)
 		if strings.Contains(upper, "TOKEN") || strings.Contains(upper, "SECRET") || strings.Contains(upper, "PASSWORD") ||
 			strings.Contains(upper, "CREDENTIAL") || strings.Contains(upper, "API_KEY") ||
-			strings.Contains(upper, "COOKIE") || strings.Contains(upper, "PRIVATE_KEY") {
+			strings.Contains(upper, "COOKIE") || strings.Contains(upper, "PRIVATE_KEY") || upper == "XERJ_AUTH" {
 			continue
 		}
 		result = append(result, kv)
@@ -260,6 +260,7 @@ func (r *Registry) Close() {
 		for _, provider := range r.externalProcesses {
 			provider.Close()
 		}
+		r.closeXerj()
 	}
 }
 
