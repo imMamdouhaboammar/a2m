@@ -10,21 +10,23 @@ import (
 )
 
 type featuredCapability struct {
-	ID            string   `json:"id"`
-	Category      string   `json:"category"`
-	Priority      string   `json:"priority"`
-	Description   string   `json:"description"`
-	UseFor        string   `json:"use_for"`
-	Installed     bool     `json:"installed"`
-	Executable    string   `json:"executable,omitempty"`
-	SkillID       string   `json:"skill_id,omitempty"`
-	Status        string   `json:"status"`
-	MCPConfigured bool     `json:"mcp_configured"`
-	MCPAvailable  bool     `json:"mcp_available"`
-	SuggestedUse  string   `json:"suggested_use"`
-	SourceURL     string   `json:"source_url,omitempty"`
-	WorksWith     []string `json:"works_with,omitempty"`
-	Workflow      []string `json:"workflow,omitempty"`
+	ID             string   `json:"id"`
+	Category       string   `json:"category"`
+	Priority       string   `json:"priority"`
+	Description    string   `json:"description"`
+	UseFor         string   `json:"use_for"`
+	CLIAvailable   bool     `json:"cli_available"`
+	InvocationTool string   `json:"invocation_tool,omitempty"`
+	Installed      bool     `json:"installed"`
+	Executable     string   `json:"executable,omitempty"`
+	SkillID        string   `json:"skill_id,omitempty"`
+	Status         string   `json:"status"`
+	MCPConfigured  bool     `json:"mcp_configured"`
+	MCPAvailable   bool     `json:"mcp_available"`
+	SuggestedUse   string   `json:"suggested_use"`
+	SourceURL      string   `json:"source_url,omitempty"`
+	WorksWith      []string `json:"works_with,omitempty"`
+	Workflow       []string `json:"workflow,omitempty"`
 }
 
 type capabilitySpec struct {
@@ -110,6 +112,13 @@ func (r *Registry) featuredCapabilities() []featuredCapability {
 			}
 		}
 		item.Installed = item.Executable != ""
+		if item.Installed {
+			name := cliToolName(item.ID)
+			if r.handlers != nil && r.handlers[name] != nil {
+				item.CLIAvailable = true
+				item.InvocationTool = name
+			}
+		}
 		if item.ID == "rea" {
 			item.WorksWith = []string{"replica-square"}
 			item.Workflow = []string{"REA target inspection and evidence extraction", "Artifact hashes and evidence ledger", "Replica-Square clean-room synthesis when requested", "Independent parity, accessibility and IP clearance verification"}
@@ -145,6 +154,8 @@ func (r *Registry) featuredCapabilities() []featuredCapability {
 			}
 		case item.MCPAvailable:
 			item.Status = "mcp_operator_approved"
+		case item.CLIAvailable:
+			item.Status = "cli_mcp_callable"
 		case item.MCPConfigured && item.Installed:
 			item.Status = "cli_installed_mcp_not_approved"
 		case item.MCPConfigured:

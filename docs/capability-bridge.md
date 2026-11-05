@@ -95,7 +95,7 @@ The updated bundle is now installed in place at `apps/desktop/macos/A2M.app`, wi
 
 **Operational caveat:** The tunnel process was recovered using an isolated temporary, credential-inheriting restart supervisor. It currently runs; a persistent, secure at-login runtime supervisor is not yet configured. Reboot persistence must be tested separately. Avoid writing the runtime API key into scripts or launchd property lists.
 
-**Release gate:** Code graph and local skill discovery are functional. Third-party MCP execution is intentionally still opt-in; inventory discovery alone is not third-party tool availability. Do not label the complete broad Capability Bridge feature finished until approved third-party servers have a constrained execution adapter and end-to-end client tests.
+**Release gate (updated in v1.3.0):** Code graph, local skill discovery, native CLI execution, and approved stdio/Streamable HTTP MCP passthrough have integration tests. Inventory alone never grants execution rights. Actual tool availability depends on installed executables, configured credentials, and the MCP client refreshing its tool catalog.
 
 
 ## Operator-approved external MCP passthrough (implemented after live-client E2E)
@@ -116,10 +116,10 @@ The adapter is intentionally **off by default**. To enable a trusted provider, t
 }
 \`\`\`
 
-- \`name\` must match a server already configured in Claude/Cursor MCP configuration, not an executable invented by the AI client.
+- \`name\` must match a server already configured in Claude, Gemini/Antigravity, Cursor, or VS Code MCP configuration, not an executable invented by the AI client.
 - \`source\` is \`user\` for user-wide configured servers, or \`project\` for the exact approved A2M workspace's project configuration. Project names from any other project are excluded.
-- \`tools\` is an **exact allowlist** of upstream MCP tool names. A server with no approved tools is never started. Tools omitted from this list cannot appear in \`tools/list\` or dispatch.
-- Only stdio subprocess MCP configurations using \`command\` and \`args\` are currently supported. HTTP/streamable HTTP/remote MCP endpoints are **not** treated as local executables.
+- \`tools\` is an **exact allowlist** of upstream MCP tool names, or a wildcard to approve all tools advertised by this specific server. A server with no approved tools is never started. Tools omitted from this list cannot appear in \`tools/list\` or dispatch.
+- Stdio subprocess MCP configurations using \`command\` and \`args\` are supported. HTTPS Streamable HTTP/SSE responses are supported as remote providers; legacy GET-only SSE endpoints require a compatible transport.
 - The process runs with the same macOS user's permissions: this is a tool-exposure boundary, **not** an operating-system sandbox. Treat any approved provider and its command as trusted software. The provider receives only a small environment allowlist plus its explicitly configured \`env\` values; \`CONTROL_PLANE_API_KEY\` and \`DC_AUTH_TOKEN\` are blocked, including if present in provider configuration.
 - The process's stderr is not reflected into MCP responses, and stdout is parsed as MCP JSON-RPC. Calls time out; child processes are terminated when the gateway exits.
 - No MCP tool permits modifying the approval manifest via the normal \`set_config_value\` API. The operator must alter the file directly and **restart the MCP worker** for changes to the exported schemas to take effect.
@@ -127,7 +127,7 @@ The adapter is intentionally **off by default**. To enable a trusted provider, t
 - A native AI client must re-list/refresh tools after approved-server changes, as its prior tool manifest may be cached.
 - The approval file is configuration metadata, not a secret store. Keep provider credentials in the existing provider configuration or the operator's secure credential facilities.
 
-**Verified with local real-process fixture:** one allowed \`echo\` tool appears, retains its schema and successfully handles \`tools/call\`; a second advertised \`forbidden\` tool cannot be invoked; an empty approval manifest launches no provider; group/world-writable approvals fail closed; a user-scoped server cannot satisfy project-scoped approval; and the tunnel control-plane key is not forwarded. These tests do not imply that all nine discovered providers have been individually activated or proven compatible. Those remain disabled until selected by the operator.
+**Verified with local real-process fixture:** one allowed \`echo\` tool appears, retains its schema and successfully handles \`tools/call\`; a second advertised \`forbidden\` tool cannot be invoked; an empty approval manifest launches no provider; group/world-writable approvals fail closed; a user-scoped server cannot satisfy project-scoped approval; and the tunnel control-plane key is not forwarded. These tests do not imply that all nine discovered providers have been individually activated or proven compatible. Configured providers remain disabled unless selected by the operator. The v1.3.0 staged integration verified 24 configured providers, 13 activated servers and 471 native upstream tools.
 
 ### Ongoing limits
 
@@ -152,3 +152,40 @@ The adapter is intentionally **off by default**. To enable a trusted provider, t
 **Codex Review boundary:** A separate `codex review` failure returned HTTP 401. A local, credential-free `codex login status` check confirmed `Not logged in` on this Mac. This is an external Codex authentication requirement, not something A2M graph routing can or should bypass. The operator must complete `codex login` in an authorized interactive local terminal and confirm `codex login status` before independent AI review can run. A2M Code Review Graph can still supply structural review context without Codex login, but does not replace independent AI review sign-off. Never copy credentials into repository files, chatbot logs or process arguments.
 
 **Activation:** Once the tested new gateway binary is installed, a controlled reconnect of the affected MCP worker is needed to load the updated schema/handlers. An existing ChatGPT session may retain its previous `code_graph_refresh` schema, so new clients may need to refresh their A2M MCP tool registration. Do not kill an active tunnel solely to change a graph allowlist. Indexes may need an explicit first `code_graph_refresh` after a new project is approved.
+
+
+## A2M v1.3.0 — executable Capability Bridge
+
+This release makes the premium catalog actionable. For every installed curated CLI,
+the MCP gateway registers a separate cli_<capability>_run tool with a JSON schema
+for literal args, cwd, and timeout_ms. The command is executed as a direct
+process (not through a shell). The gateway does not implicitly install missing
+tools or inherit its own control-plane credentials into CLI children.
+
+A2M discovers configured MCP providers from Claude, Gemini/Antigravity, and
+VS Code, supporting both mcpServers and servers config shapes. Actual
+upstream MCP tools/list schemas are exported as ext_user_<provider>__<tool>,
+with forwarding through either local stdio or Streamable HTTP/SSE.
+Discovery alone never executes a third-party MCP; the operator must explicitly
+approve it in the locally owned, mode-0600
+~/.a2m/mcp-approvals.json file. A server-level tools:["*"] permission
+exports **only the names actually returned** by that specific approved server;
+an explicit list of names remains supported.
+
+Approved providers initialize with bounded parallelism and individually limited
+startup deadlines. A broken or unauthenticated provider is shown as
+approved_unavailable, not as an active tool. MCP list pagination follows
+nextCursor and rejects repeated cursors and oversized inventories.
+HTTPS is required for remote servers except localhost; redirects are not followed.
+OAuth-only endpoints need their normal external authentication flow; A2M does
+not bypass it. The bridge does not escalate OS privileges or remove macOS
+privacy/security protections.
+
+For operator verification after reconnect:
+1. Verify /api/status reports appVersion: 1.3.0 and a tool count above the v1.2.0 baseline.
+2. Call MCP capabilities_list and mcp_servers_list to distinguish CLI callable,
+   MCP active, and MCP approved-but-unavailable states.
+3. Inspect actual tools/list and invoke a read-only CLI, e.g. the discovered
+   cli_rea_run with JSON args containing --version.
+4. Invoke an approved external MCP read-only tool and confirm provider response
+   in the gateway audit. Credentialed services still require their own login.

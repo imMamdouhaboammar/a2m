@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/imMamdouhaboammar/a2m/services/dc-gateway/auth"
 	"github.com/imMamdouhaboammar/a2m/services/dc-gateway/config"
@@ -31,6 +33,10 @@ func TestExternalMCPStdioFixture(t *testing.T) {
 		var result interface{}
 		switch request.Method {
 		case "initialize":
+			if d, _ := strconv.Atoi(os.Getenv("A2M_MCP_FIXTURE_INIT_DELAY_MS")); d > 0 && d < 3000 {
+				time.Sleep(time.Duration(d) * time.Millisecond)
+			}
+
 			result = map[string]interface{}{
 				"protocolVersion": "2025-06-18",
 				"capabilities":    map[string]interface{}{"tools": map[string]interface{}{}},
@@ -180,5 +186,142 @@ func TestExternalMCPControlKeyNotForwarded(t *testing.T) {
 		strings.Contains(env, "should-not-forward") ||
 		!strings.Contains(env, "SENTRY_AUTH_TOKEN=APPROVED_PROVIDER_TOKEN") {
 		t.Fatal("provider environment isolation failed")
+	}
+}
+
+func TestExternalMCPWildcardApprovalExportsActualUpstreamTools(t *testing.T) {
+	r, _ := setupExternalMCPTest(t, "{\"servers\":[{\"name\":\"fixture\",\"source\":\"user\",\"tools\":[\"*\"]}]}")
+	if len(r.ListTools()) != 2 {
+		t.Fatalf("wildcard did not export upstream MCP tools: %+v", r.ListTools())
+	}
+	for _, name := range []string{"ext_user_fixture__echo", "ext_user_fixture__forbidden"} {
+		result := r.Dispatch(name, json.RawMessage("{\"message\":\"verified\"}"))
+		if result.IsError && name == "ext_user_fixture__echo" {
+			t.Fatalf("wildcard tool not callable: %+v", result)
+		}
+	}
+}
+
+func TestExternalMCPDiscoverySupportsUserServersFormat(t *testing.T) {
+	root := t.TempDir()
+	binary, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg := map[string]interface{}{"servers": map[string]interface{}{"fixture": externalMCPLaunch{
+		Command: binary, Args: []string{"-test.run=^TestExternalMCPStdioFixture$"},
+		Env: map[string]string{"A2M_MCP_FIXTURE": "1"},
+	}}}
+	raw, err := json.Marshal(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	provider := filepath.Join(root, "providers.json")
+	approvals := filepath.Join(root, "approvals.json")
+	if err = os.WriteFile(provider, raw, 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err = os.WriteFile(approvals, []byte("{\"servers\":[{\"name\":\"fixture\",\"source\":\"user\",\"tools\":[\"echo\"]}]}"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("A2M_MCP_DISCOVERY_CONFIG", provider)
+	t.Setenv("A2M_MCP_APPROVALS_FILE", approvals)
+	configMgr := config.NewConfigManager(filepath.Join(root, "config.json"))
+	if err = configMgr.SetValue("capabilityWorkspace", root); err != nil {
+		t.Fatal(err)
+	}
+	registry := &Registry{handlers: make(map[string]ToolHandler), sessionHandlers: make(map[string]SessionToolHandler), callCounts: make(map[string]int),
+		configMgr: configMgr, auth: auth.NewAuthenticator("", auth.RoleAdmin, false)}
+	registry.registerExternalMCP()
+	t.Cleanup(registry.Close)
+	if len(registry.ListTools()) != 1 || registry.ListTools()[0].Name != "ext_user_fixture__echo" {
+		t.Fatalf("VS Code servers form not executable: %+v", registry.ListTools())
+	}
+}
+
+func TestExternalMCPDefaultDiscoveryIncludesGeminiAndVSCode(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("A2M_MCP_APPROVALS_FILE", filepath.Join(home, "not-created.json"))
+	// Discovery and invocation must use exactly the same sources.
+	got := strings.Join(externalDiscoveryPaths(), ";")
+	for _, want := range []string{
+		filepath.Join(home, ".gemini", "config", "mcp_config.json"),
+		filepath.Join(home, ".gemini", "antigravity", "mcp_config.json"),
+		filepath.Join(home, "Library", "Application Support", "Code", "User", "mcp.json"),
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("configured MCP location omitted: %s; got %s", want, got)
+		}
+	}
+}
+
+func TestExternalMCPApprovedButUnavailableIsNotCalledDisabled(t *testing.T) {
+	root := t.TempDir()
+	cfg := config.NewConfigManager(filepath.Join(root, "config.json"))
+	if err := cfg.SetValue("capabilityWorkspace", root); err != nil {
+		t.Fatal(err)
+	}
+	provider := filepath.Join(root, "providers.json")
+	approvals := filepath.Join(root, "approvals.json")
+	_ = os.WriteFile(provider, []byte("{\"mcpServers\":{\"fixture\":{\"command\":\"/missing/provider\"}}}"), 0600)
+	_ = os.WriteFile(approvals, []byte("{\"servers\":[{\"name\":\"fixture\",\"source\":\"user\",\"tools\":[\"*\"]}]}"), 0600)
+	t.Setenv("A2M_MCP_DISCOVERY_CONFIG", provider)
+	t.Setenv("A2M_MCP_APPROVALS_FILE", approvals)
+	r := &Registry{handlers: make(map[string]ToolHandler), sessionHandlers: make(map[string]SessionToolHandler),
+		callCounts: make(map[string]int), configMgr: cfg, auth: auth.NewAuthenticator("", auth.RoleAdmin, false)}
+	r.registerExternalMCP()
+	if got := r.externalServerStatus(); len(got) != 1 || got[0].State != "approved_unavailable" {
+		t.Fatalf("approved provider wrongly presented as not approved: %+v", got)
+	}
+	if len(r.ListTools()) != 0 {
+		t.Fatal("unreachable provider has tools advertised")
+	}
+}
+
+func TestExternalMCPStartsIndependentProvidersConcurrently(t *testing.T) {
+	root := t.TempDir()
+	executable, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	configPath := filepath.Join(root, "providers.json")
+	approvalPath := filepath.Join(root, "approvals.json")
+	providers := map[string]interface{}{"mcpServers": map[string]interface{}{}}
+	for _, name := range []string{"first", "second"} {
+		providers["mcpServers"].(map[string]interface{})[name] = externalMCPLaunch{
+			Command: executable, Args: []string{"-test.run=^TestExternalMCPStdioFixture$"},
+			Env: map[string]string{"A2M_MCP_FIXTURE": "1", "A2M_MCP_FIXTURE_INIT_DELAY_MS": "1400"},
+		}
+	}
+	configBytes, _ := json.Marshal(providers)
+	if err := os.WriteFile(configPath, configBytes, 0600); err != nil {
+		t.Fatal(err)
+	}
+	approval := map[string]interface{}{"servers": []externalMCPApproval{
+		{Name: "first", Source: "user", Tools: []string{"echo"}},
+		{Name: "second", Source: "user", Tools: []string{"echo"}},
+	}}
+	approvalBytes, _ := json.Marshal(approval)
+	if err := os.WriteFile(approvalPath, approvalBytes, 0600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("A2M_MCP_DISCOVERY_CONFIG", configPath)
+	t.Setenv("A2M_MCP_APPROVALS_FILE", approvalPath)
+	cfg := config.NewConfigManager(filepath.Join(root, "config.json"))
+	if err := cfg.SetValue("capabilityWorkspace", root); err != nil {
+		t.Fatal(err)
+	}
+	r := &Registry{handlers: make(map[string]ToolHandler), sessionHandlers: make(map[string]SessionToolHandler),
+		callCounts: make(map[string]int), configMgr: cfg, auth: auth.NewAuthenticator("", auth.RoleAdmin, false)}
+	start := time.Now()
+	r.registerExternalMCP()
+	elapsed := time.Since(start)
+	t.Cleanup(r.Close)
+	if len(r.ListTools()) != 2 {
+		t.Fatalf("two independent providers not available: %+v", r.ListTools())
+	}
+	if elapsed > 2600*time.Millisecond {
+		t.Fatalf("MCP providers initialized serially: elapsed=%v", elapsed)
 	}
 }

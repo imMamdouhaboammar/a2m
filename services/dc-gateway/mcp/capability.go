@@ -252,6 +252,11 @@ func listDiscoveredMCPServers(workspace string) []discoveredServer {
 				add(name, "user")
 			}
 		}
+		if json.Unmarshal(root["servers"], &servers) == nil {
+			for name := range servers {
+				add(name, "user")
+			}
+		}
 		var projects map[string]json.RawMessage
 		if json.Unmarshal(root["projects"], &projects) == nil && workspace != "" {
 			// Only inventory project MCP servers belonging to the exact approved

@@ -12,6 +12,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -22,9 +23,12 @@ type externalMCPApproval struct {
 }
 
 type externalMCPLaunch struct {
-	Command string            `json:"command"`
-	Args    []string          `json:"args"`
-	Env     map[string]string `json:"env"`
+	URL       string            `json:"url"`
+	ServerURL string            `json:"serverUrl"`
+	Headers   map[string]string `json:"headers"`
+	Command   string            `json:"command"`
+	Args      []string          `json:"args"`
+	Env       map[string]string `json:"env"`
 }
 
 var externalToolName = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_.-]{0,127}$`)
@@ -81,6 +85,9 @@ func externalDiscoveryPaths() []string {
 		filepath.Join(home, ".claude.json"),
 		filepath.Join(home, ".cursor", "mcp.json"),
 		filepath.Join(home, "Library", "Application Support", "Claude", "claude_desktop_config.json"),
+		filepath.Join(home, ".gemini", "config", "mcp_config.json"),
+		filepath.Join(home, ".gemini", "antigravity", "mcp_config.json"),
+		filepath.Join(home, "Library", "Application Support", "Code", "User", "mcp.json"),
 	}
 }
 
@@ -97,6 +104,7 @@ func findExternalLaunch(name, source, workspace string) (externalMCPLaunch, bool
 		}
 		var root struct {
 			MCPServers map[string]json.RawMessage `json:"mcpServers"`
+			Servers    map[string]json.RawMessage `json:"servers"`
 			Projects   map[string]struct {
 				MCPServers map[string]json.RawMessage `json:"mcpServers"`
 			} `json:"projects"`
@@ -107,6 +115,9 @@ func findExternalLaunch(name, source, workspace string) (externalMCPLaunch, bool
 		var selected json.RawMessage
 		if source == "user" {
 			selected = root.MCPServers[name]
+			if len(selected) == 0 {
+				selected = root.Servers[name]
+			}
 		} else if workspace != "" {
 			// Claude projects use absolute paths as keys.
 			if project, ok := root.Projects[workspace]; ok {
@@ -117,7 +128,7 @@ func findExternalLaunch(name, source, workspace string) (externalMCPLaunch, bool
 			continue
 		}
 		var config externalMCPLaunch
-		if json.Unmarshal(selected, &config) != nil || strings.TrimSpace(config.Command) == "" {
+		if json.Unmarshal(selected, &config) != nil || (strings.TrimSpace(config.Command) == "" && strings.TrimSpace(config.URL) == "" && strings.TrimSpace(config.ServerURL) == "") {
 			return externalMCPLaunch{}, false
 		}
 		return config, true
@@ -172,54 +183,111 @@ func externalPrefix(name, source string) string {
 	return b.String()
 }
 
+// Providers initialize in bounded parallelism, but tools are registered in
+// deterministic manifest order. One broken third-party server cannot block the
+// entire gateway's startup serially.
+type externalProviderSlot struct {
+	approval    externalMCPApproval
+	id          string
+	launch      externalMCPLaunch
+	selected    map[string]bool
+	selectedAll bool
+	local       *graphProxy
+	upstream    []ToolDefinition
+	call        func(string, json.RawMessage) (ToolCallResult, error)
+}
+
 func (r *Registry) registerExternalMCP() {
 	workspace := r.capabilityWorkspace()
 	if workspace == "" {
 		return
 	}
 	r.externalActive = make(map[string]int)
+	r.externalApproved = make(map[string]bool)
 	seen := make(map[string]bool)
+	var slots []externalProviderSlot
 	for _, approval := range loadExternalApprovals() {
 		id := externalServerID(approval.Name, approval.Source)
 		if seen[id] || approval.Name == "" || len(approval.Tools) == 0 || len(approval.Tools) > 128 {
 			continue
 		}
 		seen[id] = true
+		r.externalApproved[id] = true
 		selected := make(map[string]bool)
+		selectedAll := false
 		for _, name := range approval.Tools {
+			if name == "*" {
+				selectedAll = true
+				continue
+			}
 			if externalToolName.MatchString(name) {
 				selected[name] = true
 			}
 		}
-		if len(selected) == 0 {
+		if len(selected) == 0 && !selectedAll {
 			continue
 		}
 		launch, found := findExternalLaunch(approval.Name, approval.Source, workspace)
 		if !found {
 			continue
 		}
-		executable, err := exec.LookPath(launch.Command)
-		if err != nil {
+		slots = append(slots, externalProviderSlot{approval: approval, id: id, launch: launch, selected: selected, selectedAll: selectedAll})
+	}
+	var wg sync.WaitGroup
+	semaphore := make(chan struct{}, 4)
+	for i := range slots {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			semaphore <- struct{}{}
+			defer func() { <-semaphore }()
+			slot := &slots[i]
+			if slot.launch.Command != "" {
+				executable := resolveActiveCLI(slot.launch.Command)
+				if executable == "" {
+					return
+				}
+				cmd := exec.Command(executable, slot.launch.Args...)
+				cmd.Dir = workspace
+				cmd.Env = safeExternalEnvironment(slot.launch.Env)
+				proxy, err := startGraphProcess(cmd, workspace)
+				if err != nil {
+					return
+				}
+				upstream, err := proxy.listTools()
+				if err != nil {
+					proxy.Close()
+					return
+				}
+				slot.local = proxy
+				slot.upstream = upstream
+				slot.call = proxy.callExternalTool
+			} else {
+				remote, err := newRemoteMCPProxy(slot.launch)
+				if err != nil {
+					return
+				}
+				upstream, err := remote.listTools()
+				if err != nil {
+					return
+				}
+				slot.upstream = upstream
+				slot.call = remote.callExternalTool
+			}
+		}(i)
+	}
+	wg.Wait()
+	for i := range slots {
+		slot := &slots[i]
+		if slot.call == nil {
 			continue
 		}
-		cmd := exec.Command(executable, launch.Args...)
-		cmd.Dir = workspace
-		cmd.Env = safeExternalEnvironment(launch.Env)
-		proxy, err := startGraphProcess(cmd, workspace)
-		if err != nil {
-			continue
-		}
-		upstream, err := proxy.listTools()
-		if err != nil {
-			proxy.Close()
-			continue
-		}
-		prefix := externalPrefix(approval.Name, approval.Source)
 		count := 0
-		for _, definition := range upstream {
+		prefix := externalPrefix(slot.approval.Name, slot.approval.Source)
+		for _, definition := range slot.upstream {
 			original := definition.Name
 			mapped := prefix + original
-			if !selected[original] || !externalToolName.MatchString(original) ||
+			if (!slot.selectedAll && !slot.selected[original]) || !externalToolName.MatchString(original) ||
 				len(mapped) > 128 || r.handlers[mapped] != nil {
 				continue
 			}
@@ -227,20 +295,24 @@ func (r *Registry) registerExternalMCP() {
 			if len(definition.Description) > 800 {
 				definition.Description = definition.Description[:800]
 			}
-			definition.Description = fmt.Sprintf("Operator-approved MCP (%s, %s): %s",
-				approval.Name, approval.Source, definition.Description)
+			definition.Description = fmt.Sprintf("Operator-approved MCP (%s, %s): %s", slot.approval.Name, slot.approval.Source, definition.Description)
+			call := slot.call
 			upstreamName := original
 			r.register(definition, func(args json.RawMessage) (ToolCallResult, error) {
-				return proxy.callExternalTool(upstreamName, args)
+				return call(upstreamName, args)
 			})
 			count++
 		}
 		if count == 0 {
-			proxy.Close()
+			if slot.local != nil {
+				slot.local.Close()
+			}
 			continue
 		}
-		r.externalProcesses = append(r.externalProcesses, proxy)
-		r.externalActive[id] = count
+		if slot.local != nil {
+			r.externalProcesses = append(r.externalProcesses, slot.local)
+		}
+		r.externalActive[slot.id] = count
 	}
 }
 
@@ -282,6 +354,8 @@ func (r *Registry) externalServerStatus() []discoveredServer {
 		id := externalServerID(servers[i].Name, servers[i].Source)
 		if r.externalActive[id] > 0 {
 			servers[i].State = fmt.Sprintf("active:%d", r.externalActive[id])
+		} else if r.externalApproved[id] {
+			servers[i].State = "approved_unavailable"
 		}
 	}
 	return servers

@@ -37,6 +37,7 @@ type Registry struct {
 	graphMu           sync.Mutex
 	externalProcesses []*graphProxy
 	externalActive    map[string]int
+	externalApproved  map[string]bool
 	xerjProcess       *graphProxy
 	xerjExecutable    string
 	xerjMu            sync.Mutex
@@ -65,6 +66,7 @@ func NewRegistry(
 
 	r.registerAll()
 	r.registerCapabilities()
+	r.registerCLIBridge()
 	r.registerCodeReviewGraph()
 	r.registerXerj()
 	r.registerExternalMCP()
