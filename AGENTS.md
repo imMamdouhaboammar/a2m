@@ -122,3 +122,11 @@ CLI commands are also available via `start_process`:
 - `xerj search "<query>"`
 - `xerj autoindex .`
 Cite `file:line` for any passage you rely on.
+
+## 7. Curated Capability Catalog and REA Dual-Engine Collaboration
+
+- `capabilities_list` advertises 27 curated capabilities, including gbrain, repowise, GSD, 21st, UI Master Rig, Supabase, Resend, Playwright, tester-army/e2e, development and infrastructure CLIs, and the premium REA/Replica-Square pair. These are task-fit hints, not authorization.
+- The running CLI installation and the MCP server approval are distinct facts. Never launch an unapproved external MCP provider through a terminal to evade the operator's approval file.
+- `rea` and `replica-square` both advertise the same `skill_id` from canonical `~/.agents/skills/rea/SKILL.md`. The user's `~/.gemini/config/skills/rea` is a symlink to that canonical folder; no duplicate or rewritten skill is needed.
+- Before reverse engineering, read the selected skill with `skills_read`. For a permitted independent reconstruction use REA evidence collection, a verified evidence ledger and then Replica-Square with parity, accessibility and IP checks. Do not initiate copying proprietary code/assets or external changes without relevant authority.
+- For web/mobile testing, Playwright handles browser automation and `tester-army/e2e` handles agentic E2E actions with assertions and replay. Use the installed CLI rather than silently downloading/updating dependencies.

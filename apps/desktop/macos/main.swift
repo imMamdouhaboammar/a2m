@@ -9,6 +9,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNavigati
     var isQuitting = false
     var gatewayRecoveryAttempts = 0
     var dashboardProbeGeneration = 0
+    let runningAppVersion = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "Unknown"
     let gatewayPort: Int = {
         let configured = ProcessInfo.processInfo.environment["A2M_GATEWAY_PORT"] ?? ""
         if let value = Int(configured), (1024...65535).contains(value) { return value }
@@ -35,7 +36,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNavigati
             backing: .buffered,
             defer: false
         )
-        window.title = "A2M Desktop | Agent to Machine"
+        window.title = "A2M Desktop v\(runningAppVersion) | Agent to Machine"
         window.minSize = NSSize(width: 1000, height: 680)
         window.center()
         window.delegate = self
@@ -58,7 +59,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNavigati
 
     func setupStatusMenu() {
         let menu = NSMenu()
-        let titleItem = NSMenuItem(title: "A2M Desktop v1.1.0 (Agent to Machine)", action: nil, keyEquivalent: "")
+        let titleItem = NSMenuItem(title: "A2M Desktop v\(runningAppVersion) (Agent to Machine)", action: nil, keyEquivalent: "")
         titleItem.isEnabled = false
         menu.addItem(titleItem)
         menu.addItem(NSMenuItem.separator())

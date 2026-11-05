@@ -171,6 +171,10 @@
     const platform = typeof device.platform === "string" && device.platform ? device.platform : "Not reported";
     $("#sidebar-hostname").textContent = hostname;
     $("#sidebar-platform").textContent = platform;
+    const version = typeof data?.appVersion === "string" && /^\d+\.\d+\.\d+([-.][0-9A-Za-z.-]+)?$/.test(data.appVersion)
+      ? `v${data.appVersion}` : "Unavailable";
+    $("#sidebar-app-version").textContent = version;
+    $("#sidebar-app-version").title = version === "Unavailable" ? "Running gateway version is not reported" : `Running A2M gateway ${version}`;
     $("#sidebar-status").classList.toggle("connected", available);
     $("#api-connection").textContent = available ? "Gateway online" : "Gateway offline";
     $("#last-updated").textContent = available ? timeString(new Date()) : "--:--";
@@ -206,6 +210,30 @@
       const payload = await api("/api/capabilities");
       const catalog = payload.capabilities || {};
       const graph = catalog.code_review_graph || {};
+      const featured = Array.isArray(catalog.featured_capabilities) ? catalog.featured_capabilities : [];
+      const featuredList = document.createDocumentFragment();
+      const statusLabels = {
+        mcp_operator_approved: "MCP approved", node_healthy: "Node healthy", node_unavailable: "Node offline",
+        cli_installed_mcp_not_approved: "CLI installed · MCP not approved",
+        cli_installed_mcp_not_configured: "CLI installed · MCP not configured",
+        mcp_configured_not_approved: "MCP configured · not approved",
+        cli_installed: "CLI installed", mcp_not_configured: "MCP not configured", not_installed: "Not installed"
+      };
+      for (const tool of featured) {
+        const row = makeElement("div", "featured-row");
+        row.setAttribute("role", "listitem");
+        const copy = makeElement("div", "featured-copy");
+        copy.append(makeElement("strong", "", String(tool.id || "Unnamed")),
+          makeElement("span", "", String(tool.description || "No description")));
+        const status = makeElement("span", `featured-status ${tool.mcp_available ? "ready" : tool.installed ? "" : "unavailable"}`,
+          statusLabels[tool.status] || String(tool.status || "Unknown"));
+        row.append(copy, status);
+        row.title = String(tool.suggested_use || "");
+        featuredList.append(row);
+      }
+      if (!featured.length) featuredList.append(makeElement("div", "featured-row", "No capability catalog available."));
+      $("#capability-featured-count").textContent = `${featured.length} TOOLS`;
+      $("#capability-featured-list").replaceChildren(featuredList);
       const skills = catalog.local_skills || {};
       const external = catalog.external_mcp || {};
       const graphCount = Number(graph.native_tools) || 0;
@@ -235,6 +263,8 @@
       stateLabel.textContent = "Live inventory";
     } catch (error) {
       stateLabel.textContent = "Unavailable";
+      $("#capability-featured-count").textContent = "UNAVAILABLE";
+      $("#capability-featured-list").textContent = "The live capability catalog is unavailable.";
       $("#capability-skills").textContent = "Unavailable";
       $("#capability-graph").textContent = "Unavailable";
       $("#capability-servers-count").textContent = "Unavailable";

@@ -133,6 +133,12 @@ func TestHTTPServerDashboardAndSSEEndpoints(t *testing.T) {
 	if !strings.Contains(recStatus.Body.String(), "connectionState") {
 		t.Errorf("missing connectionState in status response")
 	}
+	var status struct {
+		AppVersion string `json:"appVersion"`
+	}
+	if err := json.Unmarshal(recStatus.Body.Bytes(), &status); err != nil || status.AppVersion != AppVersion {
+		t.Fatalf("running Gateway version not exposed: %+v, %v", status, err)
+	}
 
 	// Connect/disconnect require an isolated fake tunnel in tests.
 	// Never call the real handlers here: they control the live user tunnel-client.

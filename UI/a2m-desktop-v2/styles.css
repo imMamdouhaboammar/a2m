@@ -83,8 +83,9 @@ body.is-embedded .app-body { height: 100vh; }
 .sidebar-device strong { font-size: 12px; font-weight: 620; color: var(--ink); }
 .sidebar-device > div > span { color: var(--graphite); font-size: 12px; }
 .sidebar-device > .indicator { height: 7px; width: 7px; }
-.sidebar-version { padding: 12px 8px 0; font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
-.sidebar-version span { opacity: .75; }
+.sidebar-version { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; padding: 12px 8px 0; font-family: var(--font-mono); font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.sidebar-version span { font-size: 10px; letter-spacing: .05em; }
+.sidebar-version strong { font-size: 12px; font-weight: 650; color: var(--forest); white-space: nowrap; }
 
 /* Main canvas */
 .main-content { min-width: 0; min-height: 0; width: 100%; overflow: auto; padding: 26px 26px 16px; scrollbar-color: #cdd3ce transparent; }
@@ -290,6 +291,15 @@ body.is-embedded .app-body { height: 100vh; }
 .capability-section p { margin: 0; color: var(--graphite); font-size: 12px; line-height: 1.55; }
 .capability-server-list { display: flex; flex-wrap: wrap; gap: 7px; color: var(--muted); font-size: 12px; }
 .capability-server-tag { border: 1px solid var(--hairline); padding: 4px 8px; background: var(--paper-soft); border-radius: 4px; color: var(--graphite); font: 12px var(--font-mono); }
+.capability-featured-list { margin-top: 10px; border: 1px solid var(--hairline); border-radius: 6px; max-height: 300px; overflow: auto; background: var(--white); }
+.featured-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 9px 12px; border-bottom: 1px solid var(--hairline); }
+.featured-row:last-child { border-bottom: 0; }
+.featured-copy { display: flex; flex-direction: column; min-width: 0; gap: 4px; }
+.featured-copy strong { color: var(--ink); font: 650 12px var(--font-mono); }
+.featured-copy span { color: var(--muted); font-size: 11px; line-height: 1.35; }
+.featured-status { flex: 0 0 auto; font: 10px var(--font-mono); color: var(--graphite); max-width: 172px; text-align: right; line-height: 1.4; }
+.featured-status.ready { color: var(--forest); font-weight: 650; }
+.featured-status.unavailable { color: var(--muted); }
 @media (max-width: 1050px) { .capability-summary { grid-template-columns: 1fr; } }
 
 /* Dialog and feedback */

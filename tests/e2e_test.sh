@@ -172,7 +172,17 @@ assert capabilities.get("local_skills", {}).get("execution") == "not_auto_enable
 assert isinstance(capabilities.get("policy"), str), capabilities
 assert isinstance(capabilities.get("xerj", {}).get("installed"), bool), capabilities
 assert isinstance(capabilities.get("featured_capabilities"), list), capabilities
-assert [c.get("id") for c in capabilities["featured_capabilities"]] == ["omni-skill", "xerj", "rea"], capabilities
+featured = capabilities["featured_capabilities"]
+ids = [c.get("id") for c in featured]
+assert len(ids) >= 27 and ids[:3] == ["omni-skill", "xerj", "rea"], ids
+assert len(ids) == len(set(ids)) and "replica-square" in ids and "e2e" in ids, ids
+by_id = {c["id"]: c for c in featured}
+assert by_id["rea"].get("works_with") == ["replica-square"], by_id["rea"]
+assert by_id["replica-square"].get("works_with") == ["rea"], by_id["replica-square"]
+assert by_id["rea"].get("skill_id") == by_id["replica-square"].get("skill_id"), by_id["rea"]
+for c in featured:
+    assert isinstance(c.get("installed"), bool) and isinstance(c.get("mcp_available"), bool), c
+    assert c.get("description") and c.get("use_for") and c.get("category"), c
 if capabilities["xerj"].get("native_tools", 0) > 0:
     assert "xerj_search" in tool_list, "XERJ advertised native tools but xerj_search was absent"
 

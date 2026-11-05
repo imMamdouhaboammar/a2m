@@ -22,8 +22,9 @@ import (
 const (
 	ProtocolVersion = "2024-11-05"
 	ServerName      = "io.github.a2m/a2m-mcp"
-	ServerVersion   = "1.1.0"
 )
+
+var ServerVersion = multiplex.AppVersion
 
 func getSessionSocketPath() string {
 	if sock := os.Getenv("A2M_SESSION_SOCKET"); sock != "" {

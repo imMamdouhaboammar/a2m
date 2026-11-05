@@ -60,7 +60,7 @@
           <div><strong id="sidebar-hostname">This Mac</strong><span id="sidebar-platform">Checking device</span></div>
           <span class="indicator" id="sidebar-status" title="Gateway state"></span>
         </div>
-        <div class="sidebar-version">A2M Desktop <span>/ Live control</span></div>
+        <div class="sidebar-version" aria-label="Running gateway version"><span>GATEWAY VERSION</span><strong id="sidebar-app-version">Unavailable</strong></div>
       </aside>
 
       <main class="main-content" id="main-content">
@@ -267,6 +267,7 @@
               <div><span>Other MCP servers</span><strong id="capability-servers-count">Checking</strong><small id="capability-servers-note">Each provider and tool requires local operator approval</small></div>
             </div>
             <div class="capability-section"><h3>Local code analysis</h3><p id="capability-workspace">Checking workspace boundary</p></div>
+            <div class="capability-section"><h3>Available capability catalog <span class="micro-label" id="capability-featured-count">CHECKING</span></h3><p>Live CLI discovery and MCP approval status. Listed tools are not necessarily authorized to run.</p><div id="capability-featured-list" class="capability-featured-list" role="list" aria-label="Detected tools and permissions">Checking tools</div></div>
             <div class="capability-section"><h3>Discovered MCP services <span class="micro-label" id="capability-servers-state">CHECKING</span></h3><div id="capability-server-list" class="capability-server-list">Loading local inventory</div></div>
             <div class="settings-actions"><button type="button" class="button button-light" id="capability-refresh">Refresh inventory</button><span>Approvals are loaded from the operator-owned local file when the MCP worker starts; this screen does not activate credentials.</span></div>
           </section>
