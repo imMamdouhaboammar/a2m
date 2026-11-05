@@ -70,3 +70,10 @@ func TestTunnelActivityAtReturnsOnlyRedactedEvents(t *testing.T) {
 		t.Fatalf("unexpected sanitized activity: events=%+v err=%v", events, err)
 	}
 }
+
+func TestObservableSidecarsDoesNotMislabelDocumentServiceAsUnmonitored(t *testing.T) {
+	states := observableSidecars()
+	if states["docService"] == "not monitored" {
+		t.Fatal("document service must be probed instead of permanently marked not monitored")
+	}
+}

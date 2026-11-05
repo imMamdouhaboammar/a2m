@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"runtime"
 	"strconv"
@@ -177,22 +176,11 @@ func (s *Server) handleTunnelActivity(w http.ResponseWriter, r *http.Request) {
 }
 
 func observableSidecars() map[string]string {
-	fsStatus := "unavailable"
-	for _, path := range []string{"/tmp/a2m-ipc.sock", "/tmp/a2m-ipc.sock"} {
-		conn, err := net.DialTimeout("unix", path, 125*time.Millisecond)
-		if err == nil {
-			_ = conn.Close()
-			fsStatus = "reachable"
-			break
-		}
-	}
-	return map[string]string{
-		"gateway":  "running",
-		"fsEngine": fsStatus,
-		// The document component is used on demand; this gateway has no
-		// live document-service probe. Never report fictitious health.
-		"docService": "not monitored",
-	}
+	return probeSidecarsAt(
+		"/tmp/a2m-ipc.sock",
+		sidecarExecutable("dc-fs-engine", "a2m-fs"),
+		sidecarExecutable("dc-doc-service", "a2m-docs"),
+	)
 }
 
 func observedPlatform() string {

@@ -14,8 +14,9 @@ if [ ! -x "${BIN}" ]; then
     exit 1
 fi
 
-TEMP_DIR="$(mktemp -d /tmp/a2m_e2e_XXXXXX)"
-trap 'rm -rf "${TEMP_DIR}"' EXIT
+TEMP_DIR="$(mktemp -d "${SCRIPT_DIR}/.a2m_e2e_XXXXXX")"
+SOCKET_DIR="$(mktemp -d /tmp/a2m_e2e_sock_XXXXXX)"
+trap 'rm -rf "${TEMP_DIR}" "${SOCKET_DIR}"' EXIT
 
 TEST_FILE="${TEMP_DIR}/app.py"
 TEST_EXCEL="${TEMP_DIR}/metrics.xlsx"
@@ -33,7 +34,7 @@ echo "--> Sending MCP JSON-RPC Test Suite via stdio..."
 
 RESPONSE_LOG="${TEMP_DIR}/responses.jsonl"
 
-cat << EOF | A2M_IPC_SOCKET="${TEMP_DIR}/a2m.sock" A2M_SESSION_SOCKET="${TEMP_DIR}/session.sock" "${BIN}" > "${RESPONSE_LOG}"
+cat << EOF | A2M_IPC_SOCKET="${SOCKET_DIR}/a2m.sock" A2M_SESSION_SOCKET="${SOCKET_DIR}/session.sock" "${BIN}" > "${RESPONSE_LOG}"
 {"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}
 {"jsonrpc":"2.0","id":2,"method":"tools/list"}
 {"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"start_process","arguments":{"command":"echo 'Process Test 123'"}}}

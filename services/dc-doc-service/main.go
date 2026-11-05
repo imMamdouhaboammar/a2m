@@ -19,6 +19,12 @@ func main() {
 	}
 
 	cmd := os.Args[1]
+	if cmd == "health" {
+		_ = json.NewEncoder(os.Stdout).Encode(map[string]string{
+			"service": "a2m-docs", "status": "ready", "mode": "on-demand",
+		})
+		return
+	}
 	excelSvc := excel.NewExcelService()
 	pdfSvc := pdf.NewPdfService()
 	docxSvc := docx.NewDocxService()
