@@ -11,21 +11,23 @@ import (
 	"time"
 )
 
-// sidecarExecutable finds only executable binaries alongside the running
-// gateway or in the development tree. It never starts a service.
+// sidecarExecutable only discovers sibling executables from the gateway's
+// own installation directory. Never execute a binary found under an untrusted
+// working directory just because a dashboard status request was received.
 func sidecarExecutable(names ...string) string {
-	dirs := []string{}
-	if self, err := os.Executable(); err == nil {
-		dirs = append(dirs, filepath.Dir(self))
+	self, err := os.Executable()
+	if err != nil {
+		return ""
 	}
-	dirs = append(dirs, "./bin", "../bin", "../../bin", "../../../bin")
-	for _, dir := range dirs {
-		for _, name := range names {
-			candidate := filepath.Join(dir, name)
-			info, err := os.Stat(candidate)
-			if err == nil && info.Mode().IsRegular() && info.Mode().Perm()&0111 != 0 {
-				return candidate
-			}
+	installDir := filepath.Dir(self)
+	for _, name := range names {
+		if name != filepath.Base(name) || name == "." || name == ".." {
+			continue
+		}
+		candidate := filepath.Join(installDir, name)
+		info, err := os.Stat(candidate)
+		if err == nil && info.Mode().IsRegular() && info.Mode().Perm()&0111 != 0 {
+			return candidate
 		}
 	}
 	return ""
@@ -40,6 +42,8 @@ var docHealthCache struct {
 	ready    bool
 }
 
+// documentServiceReady probes a trusted on-demand document binary, caching
+// short-lived readiness to keep dashboard polling inexpensive.
 func documentServiceReady(binary string) bool {
 	if binary == "" {
 		return false
@@ -82,6 +86,8 @@ func documentServiceReady(binary string) bool {
 	return ready
 }
 
+// probeSidecarsAt reports actual IPC availability separately from an installed
+// on-demand filesystem worker and verifies the document worker's health.
 func probeSidecarsAt(socketPath, fsBinary, docBinary string) map[string]string {
 	fsState := "unavailable"
 	conn, err := net.DialTimeout("unix", socketPath, 125*time.Millisecond)

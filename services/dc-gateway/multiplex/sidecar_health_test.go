@@ -52,3 +52,26 @@ func TestProbeSidecarsDoesNotInventHealth(t *testing.T) {
 		t.Fatalf("missing socket and invalid health must not appear healthy: %+v", states)
 	}
 }
+
+func TestSidecarExecutableNeverSearchesUntrustedWorkingDirectory(t *testing.T) {
+	original, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := t.TempDir()
+	if err := os.Mkdir(filepath.Join(dir, "bin"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	malicious := filepath.Join(dir, "bin", "dc-doc-service-untrusted-test")
+	if err := os.WriteFile(malicious, []byte("#!/bin/sh\nexit 0\n"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chdir(dir); err != nil {
+		t.Fatal(err)
+	}
+	defer os.Chdir(original)
+	found := sidecarExecutable("dc-doc-service-untrusted-test")
+	if found != "" {
+		t.Fatalf("untrusted CWD binary discovered: %q", found)
+	}
+}
