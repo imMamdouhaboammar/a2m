@@ -21,6 +21,10 @@ import (
 	"github.com/imMamdouhaboammar/a2m/services/dc-gateway/process"
 )
 
+// AppVersion reports the version compiled into the running gateway process.
+// Official builds inject VERSION via -ldflags; tests use the matching default.
+var AppVersion = "1.2.0"
+
 type sseSession struct {
 	id     string
 	respCh chan mcp.Response
@@ -326,7 +330,7 @@ func (s *Server) handleMessage(w http.ResponseWriter, r *http.Request) {
 				},
 				ServerInfo: mcp.ServerInfo{
 					Name:    "io.github.a2m/a2m-mcp",
-					Version: "1.1.0",
+					Version: AppVersion,
 				},
 				Instructions: "A2M (Agent to Machine) Multi-Party Server provides terminal execution, fast search, and surgical file editing under user control.",
 			},
@@ -577,6 +581,7 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 
 	hostname, _ := os.Hostname()
 	status := map[string]interface{}{
+		"appVersion":        AppVersion,
 		"connectionState":   overallState,
 		"tunnelOwner":       primaryOwner,
 		"tunnelId":          primaryObs.TunnelID,
@@ -873,7 +878,7 @@ func (s *Server) handleDiagnostics(w http.ResponseWriter, r *http.Request) {
 		"device": map[string]string{
 			"hostname": hostname,
 			"platform": observedPlatform(),
-			"release":  "A2M v1.1.0 Native (Agent to Machine)",
+			"release":  "A2M v" + AppVersion + " Native (Agent to Machine)",
 		},
 		"sidecars":        observableSidecars(),
 		"tunnel":          observeTunnelClient(),

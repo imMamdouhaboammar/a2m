@@ -6,6 +6,11 @@ echo " Building A2M (Agent to Machine) Native Microservices"
 echo "=========================================================="
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+APP_VERSION="$(tr -d '\r\n' < "${ROOT_DIR}/VERSION")"
+if [[ ! "${APP_VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]]; then
+    echo "Invalid VERSION file" >&2
+    exit 1
+fi
 mkdir -p "${ROOT_DIR}/bin"
 
 echo "--> [1/3] Building Rust Filesystem & Search Engine (a2m-fs)..."
@@ -20,7 +25,7 @@ echo "--> [1/3] Building Rust Filesystem & Search Engine (a2m-fs)..."
 echo "--> [2/3] Building Go MCP Gateway & Supervisor (a2m-gateway)..."
 (
     cd "${ROOT_DIR}/services/dc-gateway"
-    go build -o "${ROOT_DIR}/bin/a2m-gateway" .
+    go build -ldflags "-X github.com/imMamdouhaboammar/a2m/services/dc-gateway/multiplex.AppVersion=${APP_VERSION}" -o "${ROOT_DIR}/bin/a2m-gateway" .
     rm -f "${ROOT_DIR}/bin/dc-gateway"
     ln -sf a2m-gateway "${ROOT_DIR}/bin/dc-gateway"
 )

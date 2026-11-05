@@ -10,13 +10,15 @@ The Go Gateway serves:
 | --- | --- |
 | `/` | A2M Desktop v2 UI |
 | `/styles.css` and `/app.js` | Local assets, no CDN |
-| `/api/status` | Tunnel-daemon readiness, device metadata and reported services |
+| `/api/status` | Tunnel-daemon readiness, device metadata, running gateway `appVersion` and reported services |
 | `/api/sessions` | Tracked terminal process sessions |
 | `/api/output?pid=<PID>&limit=250` | Recent process output without modifying agent read cursors |
 | `/api/stream` | Live server-sent terminal events (multiple subscribers supported) |
 | `/api/connect` and `/api/disconnect` | Existing tunnel controls (POST) |
 | `/api/kill?pid=<PID>` | Terminate a selected tracked process (POST, confirmed in UI) |
 | `/api/diagnostics` | Redacted gateway diagnostics export |
+
+The sidebar always shows the version reported by the **running gateway process** via `appVersion`; the native macOS window title reads the version of the **running app bundle** from `Info.plist`. Both values are supplied by the same build-time `VERSION` file, and an old running gateway is not mistaken for a newly installed bundle. Settings displays the detected capability inventory, including tool/CLI state and MCP approval separately.
 
 The app navigates between Overview, Live Terminal, Activity, Access & Pairing and Settings. The current Activity view contains **only observed process stream events since opening the UI**. It cannot identify individual AI clients or claim a tool-call audit. The Access & Pairing view displays the gateway's reported auth state. Client inventory, pairing changes and filesystem policy editing are unavailable until implemented as backend APIs.
 

@@ -6,6 +6,11 @@ APP_DIR="${SCRIPT_DIR}/apps/desktop/macos/A2M.app"
 MACOS_DIR="${APP_DIR}/Contents/MacOS"
 RESOURCES_DIR="${APP_DIR}/Contents/Resources"
 DIST_DIR="${SCRIPT_DIR}/dist"
+APP_VERSION="$(tr -d '\r\n' < "${SCRIPT_DIR}/VERSION")"
+if [[ ! "${APP_VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]]; then
+    echo "Invalid VERSION file" >&2
+    exit 1
+fi
 
 echo "=========================================================="
 echo " Building A2M Desktop (Native macOS Cocoa Mach-O App)"
@@ -30,7 +35,7 @@ chmod -R a+rX "${RESOURCES_DIR}/UI"
 cp "${SCRIPT_DIR}/apps/desktop/macos/assets/A2M.icns" "${RESOURCES_DIR}/A2M.icns"
 
 # 3. Write Info.plist
-cat << 'EOF' > "${APP_DIR}/Contents/Info.plist"
+cat << EOF > "${APP_DIR}/Contents/Info.plist"
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -48,9 +53,9 @@ cat << 'EOF' > "${APP_DIR}/Contents/Info.plist"
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.1.0</string>
+    <string>${APP_VERSION}</string>
     <key>CFBundleVersion</key>
-    <string>2</string>
+    <string>3</string>
     <key>LSMinimumSystemVersion</key>
     <string>12.0</string>
     <key>NSHighResolutionCapable</key>
