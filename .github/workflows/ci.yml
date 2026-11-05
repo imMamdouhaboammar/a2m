@@ -38,8 +38,10 @@ jobs:
           cd ../dc-gateway && go test -race -v ./...
           cd ../dc-doc-service && go test -race -v ./...
 
-      - name: Validate JavaScript syntax
-        run: node --check UI/a2m-desktop-v2/app.js
+      - name: Validate JavaScript syntax and service health UI
+        run: |
+          node --check UI/a2m-desktop-v2/app.js
+          node --test tests/ui_service_health.test.mjs
 
       - name: Run Go vet
         run: |

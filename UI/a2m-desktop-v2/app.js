@@ -102,7 +102,7 @@
     const element = document.getElementById(id);
     if (!element) return;
     element.textContent = status || "Unknown";
-    const isHealthy = /^(running|healthy|reachable)$/i.test(status || "");
+    const isHealthy = /^(running|healthy|reachable|ready \(on-demand\))$/i.test(status || "");
     element.classList.toggle("running", isHealthy);
     const dot = document.getElementById(`${id}-dot`) || element.closest(".service-chip")?.querySelector(".indicator") || element.closest(".service-item")?.querySelector(".indicator");
     if (dot) dot.classList.toggle("connected", isHealthy);
