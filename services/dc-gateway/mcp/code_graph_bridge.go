@@ -133,17 +133,39 @@ func (p *graphProxy) Close() {
 }
 
 func (p *graphProxy) listTools() ([]ToolDefinition, error) {
-	result, err := p.callRaw("tools/list", map[string]interface{}{}, 8*time.Second)
-	if err != nil {
-		return nil, err
+	var all []ToolDefinition
+	seenCursors := map[string]bool{}
+	cursor := ""
+	for page := 0; page < 32; page++ {
+		params := map[string]interface{}{}
+		if cursor != "" {
+			params["cursor"] = cursor
+		}
+		raw, err := p.callRaw("tools/list", params, 8*time.Second)
+		if err != nil {
+			return nil, err
+		}
+		var listing struct {
+			Tools      []ToolDefinition
+			NextCursor string
+		}
+		if err := json.Unmarshal(raw, &listing); err != nil {
+			return nil, err
+		}
+		if len(all)+len(listing.Tools) > 2048 {
+			return nil, fmt.Errorf("MCP provider tool list exceeds 2048 tools")
+		}
+		all = append(all, listing.Tools...)
+		if listing.NextCursor == "" {
+			return all, nil
+		}
+		if seenCursors[listing.NextCursor] {
+			return nil, fmt.Errorf("MCP provider repeated tools/list cursor")
+		}
+		seenCursors[listing.NextCursor] = true
+		cursor = listing.NextCursor
 	}
-	var listing struct {
-		Tools []ToolDefinition `json:"tools"`
-	}
-	if err := json.Unmarshal(result, &listing); err != nil {
-		return nil, err
-	}
-	return listing.Tools, nil
+	return nil, fmt.Errorf("MCP provider tools/list exceeded 32 pages")
 }
 
 func (p *graphProxy) callTool(name string, raw json.RawMessage, timeout time.Duration) (ToolCallResult, error) {
