@@ -2,11 +2,12 @@
   <img src="docs/assets/a2m-mark.svg" alt="A2M — AI connected to a computer terminal" width="330" />
 </p>
 
-# A2M — Agent to Machine
+# A2M — Agent to Machine (v1.3.2)
 
 A2M (Agent to Machine) is a local-first MCP bridge built with Rust and Go microservices and a native macOS desktop application. It lets supported AI clients interact with authorized terminal processes, files and developer workflows.
 
-**New to A2M?** Follow the [visual setup and ChatGPT connection guide](docs/ONBOARDING.md) — compact clickable screenshots walk through tunnel setup, device connection, and a successful A2M response.
+- **Latest Release**: [A2M v1.3.2 Release Notes & Architecture Guide](docs/release-v1.3.2.md)
+- **New to A2M?** Follow the [visual setup and ChatGPT connection guide](docs/ONBOARDING.md) — compact clickable screenshots walk through tunnel setup, device connection, and a successful A2M response.
 
 ## Architecture
 
@@ -17,17 +18,18 @@ A2M (Agent to Machine) is a local-first MCP bridge built with Rust and Go micros
                                           | JSON-RPC 2.0 (stdio)
                                           v
                       +---------------------------------------+
-                      |   dc-gateway (Go Microservice)       |
-                      |   - MCP JSON-RPC 2.0 Protocol Engine  |
-                      |   - Process & PTY Lifecycle Supervisor|
-                      |   - Memory-Safe Ring Buffer Pagination|
-                      |   - POSIX/Win32 Process Group Control |
+                      |  a2m-gateway / dc-gateway (Go)        |
+                      |  - MCP JSON-RPC 2.0 Protocol Engine   |
+                      |  - Self-Healing Sidecar Lifecycle     |
+                      |  - Process & PTY Lifecycle Supervisor |
+                      |  - Memory-Safe Ring Buffer Pagination |
+                      |  - POSIX/Win32 Process Group Control  |
                       +--------+---------------------+--------+
                                |                     |
              Unix Domain Socket| (JSON-RPC IPC)      | Local Process Invocation
                                v                     v
 +---------------------------------------+   +---------------------------------------+
-|  dc-fs-engine (Rust Microservice)     |   |  dc-doc-service (Go Microservice)     |
+|  a2m-fs / dc-fs-engine (Rust)         |   |  a2m-docs / dc-doc-service (Go)       |
 |  - High-Speed Filesystem Operations   |   |  - Native Excel Reader & Range Editor |
 |  - Multi-threaded Regex Search Engine |   |    (qax-os/excelize v2.11)            |
 |  - Surgical edit_block with           |   |  - Native PDF Text & Metadata Parser  |
@@ -145,18 +147,22 @@ A2M uses `a2m` and `a2m-2` as the default tunnel-client profile names. If you al
 | `excel_read_sheet` | `dc-doc-service` | Read cell matrix or range from `.xlsx` workbook |
 | `excel_list_sheets` | `dc-doc-service` | List worksheet names in `.xlsx` workbook |
 | `excel_edit_range` | `dc-doc-service` | Modify cells or ranges in `.xlsx` worksheets |
-| `docx_read` | `dc-doc-service` | Extract body text, headers, and footers from `.docx` files |
-| `docx_edit` | `dc-doc-service` | Surgical find-and-replace in `.docx` body, headers, or footers |
-| `pdf_extract_text` | `dc-doc-service` | Native text and metadata extraction from PDF files |
-| `auth_status` | `dc-gateway` | Inspect active MCP authorization status, role, and capabilities |
-| `auth_login` | `dc-gateway` | Authenticate session using security token (`DC_AUTH_TOKEN`) |
-| `index_codebase` | `dc-fs-engine` | Index workspace or directory into the persistent AST knowledge graph |
-| `get_architecture` | `dc-fs-engine` | High-level project architecture, language breakdown, entrypoints, and core symbols |
-| `query_symbols` | `dc-fs-engine` | Search code symbols (functions, structs, classes, interfaces, enums) with sub-millisecond precision |
-| `trace_call_path` | `dc-fs-engine` | Trace call chains and execution paths between source and target symbols |
-| `assess_impact` | `dc-fs-engine` | Evaluate blast radius, callers, and regression risk before modifying code |
-| `manage_adr` | `dc-fs-engine` | Manage Architecture Decision Records (ADRs) to preserve design decisions and governance |
-| `correlate_error` | `dc-gateway` | Correlate compiler errors or test failure stack traces with AST nodes and dependent callers |
+| `docx_read` | `a2m-docs` | Extract body text, headers, and footers from `.docx` files |
+| `docx_edit` | `a2m-docs` | Surgical find-and-replace in `.docx` body, headers, or footers |
+| `pdf_extract_text` | `a2m-docs` | Native text and metadata extraction from PDF files |
+| `auth_status` | `a2m-gateway` | Inspect active MCP authorization status, role, and capabilities |
+| `auth_login` | `a2m-gateway` | Authenticate session using security token (`DC_AUTH_TOKEN`) |
+| `capabilities_list` | `a2m-gateway` | Live inventory of installed agent skills, CLI bridges, and external MCP tools |
+| `skills_find` | `a2m-gateway` | Search and discover installed local Agent Skills |
+| `skills_read` | `a2m-gateway` | Read bounded, root-scoped instructions for an agent skill |
+| `mcp_servers_list` | `a2m-gateway` | List configured external Model Context Protocol providers |
+| `index_codebase` | `a2m-fs` | Index workspace or directory into the persistent AST knowledge graph |
+| `get_architecture` | `a2m-fs` | High-level project architecture, language breakdown, entrypoints, and core symbols |
+| `query_symbols` | `a2m-fs` | Search code symbols (functions, structs, classes, interfaces, enums) with sub-millisecond precision |
+| `trace_call_path` | `a2m-fs` | Trace call chains and execution paths between source and target symbols |
+| `assess_impact` | `a2m-fs` | Evaluate blast radius, callers, and regression risk before modifying code |
+| `manage_adr` | `a2m-fs` | Manage Architecture Decision Records (ADRs) to preserve design decisions and governance |
+| `correlate_error` | `a2m-gateway` | Correlate compiler errors or test failure stack traces with AST nodes and dependent callers |
 
 ## Security & Access Control (RBAC)
 
@@ -164,9 +170,12 @@ A2M includes a 100% offline-first security gateway with constant-time token veri
 
 * **Environment Configuration:**
   * `DC_AUTH_TOKEN`: Sets the expected pre-shared security token.
-  * `DC_REQUIRE_AUTH=true`: Enforces mandatory authentication for all MCP tool calls.
+  * `DC_REQUIRE_AUTH=true`: Enforces mandatory authentication for all MCP tool calls (when `false`, machine access is granted automatically).
+  * `A2M_ALLOWED_DIRECTORIES`: Colon-separated list of allowed directories for filesystem and CLI boundaries.
+  * `A2M_FS_BINARY`: Explicit operator path override for `a2m-fs` / `dc-fs-engine`.
+  * `A2M_DOC_BINARY`: Explicit operator path override for `a2m-docs` / `dc-doc-service`.
   * `DC_AUTH_ROLE`: Sets the access role:
-    * `admin` (default): Unrestricted access to all 31 tools.
+    * `admin` (default): Unrestricted access to all tools.
     * `workspace`: Permits all filesystem operations and standard developer commands; blocks destructive administrative tools (`force_terminate`, `set_config_value`).
     * `read_only`: Prohibits all mutating operations (`write_file`, `edit_block`, `start_process`, `kill_process`); permits only read and search tools.
 
