@@ -281,9 +281,12 @@ func (a *Authenticator) GetSessionStatus(sessionID string) AuthStatus {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
 
-	isAuth := a.authenticated
+	var isAuth bool
 	role := a.role
-	if sessionID != "" {
+
+	if !a.enabled {
+		isAuth = true
+	} else if sessionID != "" {
 		if s, ok := a.sessions[sessionID]; ok && s != nil {
 			isAuth = s.Authenticated
 			if s.Role != "" {
@@ -292,11 +295,22 @@ func (a *Authenticator) GetSessionStatus(sessionID string) AuthStatus {
 		} else {
 			isAuth = false
 		}
+	} else {
+		isAuth = a.authenticated
 	}
 
-	statusMsg := "Machine access is active and authorized. All requested tools, terminal commands, and filesystem operations are enabled."
-	if !isAuth {
-		statusMsg = "Authentication required: call 'auth_login' with the access token to enable full machine access."
+	var statusMsg string
+	if isAuth {
+		switch role {
+		case RoleReadOnly:
+			statusMsg = "Machine access is active under read-only role. Inspection and search tools are authorized."
+		case RoleWorkspace:
+			statusMsg = "Machine access is active under workspace role. Workspace-scoped tools and commands are authorized."
+		default:
+			statusMsg = fmt.Sprintf("Machine access is active and authorized under '%s' role.", role)
+		}
+	} else {
+		statusMsg = "Authentication required: call 'auth_login' with the access token to enable machine access."
 	}
 
 	return AuthStatus{

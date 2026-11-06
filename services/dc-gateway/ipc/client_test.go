@@ -3,8 +3,10 @@ package ipc
 import (
 	"bufio"
 	"encoding/json"
+	"fmt"
 	"net"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -78,5 +80,22 @@ func TestFsEngineClientEnsureRunning(t *testing.T) {
 	// Calling again when already connected is a no-op
 	if err := client.EnsureRunning(); err != nil {
 		t.Fatalf("second EnsureRunning failed: %v", err)
+	}
+}
+
+func TestSafeBufferConcurrency(t *testing.T) {
+	var sb safeBuffer
+	var wg sync.WaitGroup
+	for i := 0; i < 20; i++ {
+		wg.Add(1)
+		go func(idx int) {
+			defer wg.Done()
+			_, _ = sb.Write([]byte(fmt.Sprintf("log %d\n", idx)))
+			_ = sb.String()
+		}(i)
+	}
+	wg.Wait()
+	if sb.String() == "" {
+		t.Fatal("expected non-empty buffer")
 	}
 }

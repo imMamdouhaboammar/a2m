@@ -108,6 +108,23 @@ func NewFsEngineClient(socketPath string) *FsEngineClient {
 	}
 }
 
+type safeBuffer struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func (s *safeBuffer) Write(p []byte) (n int, err error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.buf.Write(p)
+}
+
+func (s *safeBuffer) String() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.buf.String()
+}
+
 // EnsureRunning guarantees the filesystem engine daemon is reachable,
 // spawning the local binary if not already running.
 func (c *FsEngineClient) EnsureRunning() error {
@@ -141,7 +158,7 @@ func (c *FsEngineClient) ensureDaemon() error {
 	} else {
 		cmd = exec.Command(c.binaryPath, "daemon", "--socket", addr)
 	}
-	var errBuf bytes.Buffer
+	var errBuf safeBuffer
 	cmd.Stdout = nil
 	cmd.Stderr = &errBuf
 	if err := cmd.Start(); err != nil {
@@ -160,6 +177,12 @@ func (c *FsEngineClient) ensureDaemon() error {
 			return nil
 		}
 	}
+
+	if cmd.Process != nil {
+		_ = cmd.Process.Kill()
+		_ = cmd.Wait()
+	}
+	c.ownedCmd = nil
 
 	errMsg := strings.TrimSpace(errBuf.String())
 	if errMsg != "" {
