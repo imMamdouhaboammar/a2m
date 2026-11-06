@@ -15,19 +15,39 @@ import (
 // own installation directory. Never execute a binary found under an untrusted
 // working directory just because a dashboard status request was received.
 func sidecarExecutable(names ...string) string {
+	for _, envKey := range []string{"A2M_DOC_BINARY", "A2M_FS_BINARY"} {
+		if envVal := os.Getenv(envKey); envVal != "" {
+			for _, name := range names {
+				if filepath.Base(envVal) == name {
+					info, err := os.Stat(envVal)
+					if err == nil && info.Mode().IsRegular() && info.Mode().Perm()&0111 != 0 {
+						return envVal
+					}
+				}
+			}
+		}
+	}
 	self, err := os.Executable()
 	if err != nil {
 		return ""
 	}
-	installDir := filepath.Dir(self)
-	for _, name := range names {
-		if name != filepath.Base(name) || name == "." || name == ".." {
-			continue
+	dirs := []string{filepath.Dir(self)}
+	if real, err := filepath.EvalSymlinks(self); err == nil {
+		realDir := filepath.Dir(real)
+		if realDir != dirs[0] {
+			dirs = append(dirs, realDir)
 		}
-		candidate := filepath.Join(installDir, name)
-		info, err := os.Stat(candidate)
-		if err == nil && info.Mode().IsRegular() && info.Mode().Perm()&0111 != 0 {
-			return candidate
+	}
+	for _, dir := range dirs {
+		for _, name := range names {
+			if name != filepath.Base(name) || name == "." || name == ".." {
+				continue
+			}
+			candidate := filepath.Join(dir, name)
+			info, err := os.Stat(candidate)
+			if err == nil && info.Mode().IsRegular() && info.Mode().Perm()&0111 != 0 {
+				return candidate
+			}
 		}
 	}
 	return ""

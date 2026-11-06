@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 )
 
@@ -55,10 +56,23 @@ func NewConfigManager(customPath string) *ConfigManager {
 
 func (cm *ConfigManager) load() error {
 	data, err := os.ReadFile(cm.configPath)
-	if err != nil {
-		return err
+	if err == nil {
+		_ = json.Unmarshal(data, &cm.config)
 	}
-	return json.Unmarshal(data, &cm.config)
+	if envAllowed := os.Getenv("A2M_ALLOWED_DIRECTORIES"); envAllowed != "" {
+		existing := make(map[string]bool)
+		for _, dir := range cm.config.AllowedDirectories {
+			existing[filepath.Clean(dir)] = true
+		}
+		for _, part := range strings.Split(envAllowed, ":") {
+			trimmed := strings.TrimSpace(part)
+			if trimmed != "" && !existing[filepath.Clean(trimmed)] {
+				cm.config.AllowedDirectories = append(cm.config.AllowedDirectories, trimmed)
+				existing[filepath.Clean(trimmed)] = true
+			}
+		}
+	}
+	return err
 }
 
 func (cm *ConfigManager) Save() error {

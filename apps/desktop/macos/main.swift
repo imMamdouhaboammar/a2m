@@ -106,15 +106,19 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNavigati
         // Spawn gateway sidecar
         let currentDir = FileManager.default.currentDirectoryPath
         var candidates = [
+            Bundle.main.bundlePath + "/Contents/MacOS/a2m-gateway",
             Bundle.main.bundlePath + "/Contents/MacOS/a2m",
-            Bundle.main.bundlePath + "/Contents/MacOS/a2m",
+            Bundle.main.bundlePath + "/Contents/MacOS/dc-gateway",
+            currentDir + "/bin/a2m-gateway",
             currentDir + "/bin/a2m",
-            currentDir + "/bin/a2m",
+            currentDir + "/bin/dc-gateway",
+            "/usr/local/bin/a2m-gateway",
             "/usr/local/bin/a2m",
             "/opt/homebrew/bin/a2m"
         ]
         if let resourcePath = Bundle.main.resourcePath {
-            candidates.insert(resourcePath + "/a2m", at: 0)
+            candidates.insert(resourcePath + "/a2m-gateway", at: 0)
+            candidates.insert(resourcePath + "/a2m", at: 1)
         }
 
         for path in candidates {

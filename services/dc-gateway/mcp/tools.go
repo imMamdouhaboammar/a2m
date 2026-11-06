@@ -1406,27 +1406,59 @@ func (r *Registry) correlateTrace(errorText string) map[string]interface{} {
 }
 
 func callDocService(args ...string) ([]byte, error) {
-	execPath, err := os.Executable()
-	binPath := ""
-	if err == nil {
-		candidate := filepath.Join(filepath.Dir(execPath), "dc-doc-service")
-		if _, err := os.Stat(candidate); err == nil {
-			binPath = candidate
+	if envBin := os.Getenv("A2M_DOC_BINARY"); envBin != "" {
+		if info, err := os.Stat(envBin); err == nil && info.Mode().IsRegular() && info.Mode().Perm()&0111 != 0 {
+			cmd := exec.Command(envBin, args...)
+			out, err := cmd.CombinedOutput()
+			if err != nil {
+				return nil, fmt.Errorf("dc-doc-service error: %s (%w)", string(out), err)
+			}
+			return out, nil
 		}
 	}
-	if binPath == "" {
-		candidates := []string{"./bin/dc-doc-service", "bin/dc-doc-service", "../bin/dc-doc-service", "../../bin/dc-doc-service", "../../../bin/dc-doc-service"}
-		for _, cand := range candidates {
-			if _, err := os.Stat(cand); err == nil {
-				if abs, err := filepath.Abs(cand); err == nil {
-					binPath = abs
+	execPath, err := os.Executable()
+	binPath := ""
+	names := []string{"a2m-docs", "dc-doc-service"}
+	if err == nil {
+		dirs := []string{filepath.Dir(execPath)}
+		if real, err := filepath.EvalSymlinks(execPath); err == nil {
+			realDir := filepath.Dir(real)
+			if realDir != dirs[0] {
+				dirs = append(dirs, realDir)
+			}
+		}
+		for _, dir := range dirs {
+			for _, name := range names {
+				candidate := filepath.Join(dir, name)
+				if info, err := os.Stat(candidate); err == nil && info.Mode().IsRegular() && info.Mode().Perm()&0111 != 0 {
+					binPath = candidate
 					break
 				}
+			}
+			if binPath != "" {
+				break
 			}
 		}
 	}
 	if binPath == "" {
-		binPath = "dc-doc-service"
+		candidates := []string{"./bin", "bin", "../bin", "../../bin", "../../../bin"}
+		for _, dir := range candidates {
+			for _, name := range names {
+				cand := filepath.Join(dir, name)
+				if info, err := os.Stat(cand); err == nil && info.Mode().IsRegular() && info.Mode().Perm()&0111 != 0 {
+					if abs, err := filepath.Abs(cand); err == nil {
+						binPath = abs
+						break
+					}
+				}
+			}
+			if binPath != "" {
+				break
+			}
+		}
+	}
+	if binPath == "" {
+		binPath = "a2m-docs"
 	}
 
 	cmd := exec.Command(binPath, args...)

@@ -56,3 +56,27 @@ func TestFsEngineClientTCPCall(t *testing.T) {
 		t.Errorf("expected mock_tcp_ok in result, got: %s", string(res))
 	}
 }
+
+func TestFsEngineClientEnsureRunning(t *testing.T) {
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("failed to listen on tcp: %v", err)
+	}
+	defer listener.Close()
+
+	tcpAddr := listener.Addr().String()
+	client := NewFsEngineClient(tcpAddr)
+	defer client.Close()
+
+	if err := client.EnsureRunning(); err != nil {
+		t.Fatalf("EnsureRunning failed against active listener: %v", err)
+	}
+	if client.conn == nil {
+		t.Fatal("expected client.conn to be non-nil after EnsureRunning")
+	}
+
+	// Calling again when already connected is a no-op
+	if err := client.EnsureRunning(); err != nil {
+		t.Fatalf("second EnsureRunning failed: %v", err)
+	}
+}

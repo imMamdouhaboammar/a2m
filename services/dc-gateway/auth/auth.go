@@ -20,10 +20,14 @@ const (
 )
 
 type AuthStatus struct {
-	Enabled       bool     `json:"enabled"`
-	Authenticated bool     `json:"authenticated"`
-	Role          Role     `json:"role"`
-	AllowedTools  []string `json:"allowedTools,omitempty"`
+	Enabled              bool     `json:"enabled"`
+	AuthRequired         bool     `json:"authRequired"`
+	Authenticated        bool     `json:"authenticated"`
+	RemoteAccess         bool     `json:"remote_access"`
+	MachineAccessEnabled bool     `json:"machine_access_enabled"`
+	Role                 Role     `json:"role"`
+	AllowedTools         []string `json:"allowedTools,omitempty"`
+	StatusMessage        string   `json:"status_message,omitempty"`
 }
 
 type Authenticator struct {
@@ -290,10 +294,19 @@ func (a *Authenticator) GetSessionStatus(sessionID string) AuthStatus {
 		}
 	}
 
+	statusMsg := "Machine access is active and authorized. All requested tools, terminal commands, and filesystem operations are enabled."
+	if !isAuth {
+		statusMsg = "Authentication required: call 'auth_login' with the access token to enable full machine access."
+	}
+
 	return AuthStatus{
-		Enabled:       a.enabled,
-		Authenticated: isAuth,
-		Role:          role,
+		Enabled:              isAuth,
+		AuthRequired:         a.enabled,
+		Authenticated:        isAuth,
+		RemoteAccess:         isAuth,
+		MachineAccessEnabled: isAuth,
+		Role:                 role,
+		StatusMessage:        statusMsg,
 	}
 }
 
