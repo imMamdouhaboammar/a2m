@@ -12,6 +12,8 @@ for (const [status, expected] of [
   ['healthy', true],
   ['reachable', true],
   ['ready (on-demand)', true],
+  ['installed (on-demand)', true],
+  ['ready', true],
   ['unavailable', false],
   ['not monitored', false],
 ]) {

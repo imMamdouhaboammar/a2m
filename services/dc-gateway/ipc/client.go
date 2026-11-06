@@ -2,6 +2,7 @@ package ipc
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -50,27 +51,54 @@ func NewFsEngineClient(socketPath string) *FsEngineClient {
 		socketPath = "/tmp/a2m-ipc.sock"
 	}
 
-	execPath, err := os.Executable()
 	var binPath string
-	if err == nil {
-		binDir := filepath.Dir(execPath)
-		candidate := filepath.Join(binDir, "dc-fs-engine")
-		if _, err := os.Stat(candidate); err == nil {
-			binPath = candidate
+	if envBin := os.Getenv("A2M_FS_BINARY"); envBin != "" {
+		if info, err := os.Stat(envBin); err == nil && info.Mode().IsRegular() && info.Mode().Perm()&0111 != 0 {
+			binPath = envBin
 		}
 	}
-	if binPath == "" {
-		candidates := []string{"./bin/dc-fs-engine", "bin/dc-fs-engine", "../bin/dc-fs-engine", "../../bin/dc-fs-engine"}
-		for _, cand := range candidates {
-			if _, err := os.Stat(cand); err == nil {
-				if abs, err := filepath.Abs(cand); err == nil {
-					binPath = abs
+
+	execPath, err := os.Executable()
+	names := []string{"a2m-fs", "dc-fs-engine"}
+	if binPath == "" && err == nil {
+		dirs := []string{filepath.Dir(execPath)}
+		if real, err := filepath.EvalSymlinks(execPath); err == nil {
+			realDir := filepath.Dir(real)
+			if realDir != dirs[0] {
+				dirs = append(dirs, realDir)
+			}
+		}
+		for _, dir := range dirs {
+			for _, name := range names {
+				candidate := filepath.Join(dir, name)
+				if info, err := os.Stat(candidate); err == nil && info.Mode().IsRegular() && info.Mode().Perm()&0111 != 0 {
+					binPath = candidate
 					break
 				}
 			}
+			if binPath != "" {
+				break
+			}
+		}
+	}
+	if binPath == "" {
+		candidates := []string{"./bin", "bin", "../bin", "../../bin", "../../../bin"}
+		for _, dir := range candidates {
+			for _, name := range names {
+				cand := filepath.Join(dir, name)
+				if info, err := os.Stat(cand); err == nil && info.Mode().IsRegular() && info.Mode().Perm()&0111 != 0 {
+					if abs, err := filepath.Abs(cand); err == nil {
+						binPath = abs
+						break
+					}
+				}
+			}
+			if binPath != "" {
+				break
+			}
 		}
 		if binPath == "" {
-			binPath = "dc-fs-engine"
+			binPath = "a2m-fs"
 		}
 	}
 
@@ -78,6 +106,31 @@ func NewFsEngineClient(socketPath string) *FsEngineClient {
 		socketPath: socketPath,
 		binaryPath: binPath,
 	}
+}
+
+type safeBuffer struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func (s *safeBuffer) Write(p []byte) (n int, err error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.buf.Write(p)
+}
+
+func (s *safeBuffer) String() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.buf.String()
+}
+
+// EnsureRunning guarantees the filesystem engine daemon is reachable,
+// spawning the local binary if not already running.
+func (c *FsEngineClient) EnsureRunning() error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.ensureDaemon()
 }
 
 func (c *FsEngineClient) ensureDaemon() error {
@@ -98,18 +151,18 @@ func (c *FsEngineClient) ensureDaemon() error {
 		return nil
 	}
 
-	fmt.Fprintf(os.Stderr, "[dc-gateway] Starting dc-fs-engine binary at '%s' with %s '%s'\n", c.binaryPath, network, addr)
+	fmt.Fprintf(os.Stderr, "[dc-gateway] Starting %s binary at '%s' with %s '%s'\n", filepath.Base(c.binaryPath), c.binaryPath, network, addr)
 	var cmd *exec.Cmd
 	if isTCP {
 		cmd = exec.Command(c.binaryPath, "daemon", "--tcp", addr)
 	} else {
 		cmd = exec.Command(c.binaryPath, "daemon", "--socket", addr)
 	}
-	// Avoid piping to os.Stderr directly to prevent holding open test harness pipes
+	var errBuf safeBuffer
 	cmd.Stdout = nil
-	cmd.Stderr = nil
+	cmd.Stderr = &errBuf
 	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("failed to auto-start dc-fs-engine (%s): %w", c.binaryPath, err)
+		return fmt.Errorf("failed to auto-start %s (%s): %w", filepath.Base(c.binaryPath), c.binaryPath, err)
 	}
 	c.ownedCmd = cmd
 
@@ -118,14 +171,24 @@ func (c *FsEngineClient) ensureDaemon() error {
 		time.Sleep(50 * time.Millisecond)
 		conn, err := net.Dial(network, addr)
 		if err == nil {
-			fmt.Fprintf(os.Stderr, "[dc-gateway] Connected to dc-fs-engine %s\n", network)
+			fmt.Fprintf(os.Stderr, "[dc-gateway] Connected to %s %s\n", filepath.Base(c.binaryPath), network)
 			c.conn = conn
 			c.reader = bufio.NewReader(conn)
 			return nil
 		}
 	}
 
-	return fmt.Errorf("timed out connecting to dc-fs-engine at %s (%s)", addr, network)
+	if cmd.Process != nil {
+		_ = cmd.Process.Kill()
+		_ = cmd.Wait()
+	}
+	c.ownedCmd = nil
+
+	errMsg := strings.TrimSpace(errBuf.String())
+	if errMsg != "" {
+		return fmt.Errorf("timed out connecting to %s at %s (%s): %s", filepath.Base(c.binaryPath), addr, network, errMsg)
+	}
+	return fmt.Errorf("timed out connecting to %s at %s (%s)", filepath.Base(c.binaryPath), addr, network)
 }
 
 func (c *FsEngineClient) Close() error {

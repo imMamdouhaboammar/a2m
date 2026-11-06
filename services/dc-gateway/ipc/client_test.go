@@ -3,8 +3,10 @@ package ipc
 import (
 	"bufio"
 	"encoding/json"
+	"fmt"
 	"net"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -54,5 +56,46 @@ func TestFsEngineClientTCPCall(t *testing.T) {
 
 	if !strings.Contains(string(res), "mock_tcp_ok") {
 		t.Errorf("expected mock_tcp_ok in result, got: %s", string(res))
+	}
+}
+
+func TestFsEngineClientEnsureRunning(t *testing.T) {
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("failed to listen on tcp: %v", err)
+	}
+	defer listener.Close()
+
+	tcpAddr := listener.Addr().String()
+	client := NewFsEngineClient(tcpAddr)
+	defer client.Close()
+
+	if err := client.EnsureRunning(); err != nil {
+		t.Fatalf("EnsureRunning failed against active listener: %v", err)
+	}
+	if client.conn == nil {
+		t.Fatal("expected client.conn to be non-nil after EnsureRunning")
+	}
+
+	// Calling again when already connected is a no-op
+	if err := client.EnsureRunning(); err != nil {
+		t.Fatalf("second EnsureRunning failed: %v", err)
+	}
+}
+
+func TestSafeBufferConcurrency(t *testing.T) {
+	var sb safeBuffer
+	var wg sync.WaitGroup
+	for i := 0; i < 20; i++ {
+		wg.Add(1)
+		go func(idx int) {
+			defer wg.Done()
+			_, _ = sb.Write([]byte(fmt.Sprintf("log %d\n", idx)))
+			_ = sb.String()
+		}(i)
+	}
+	wg.Wait()
+	if sb.String() == "" {
+		t.Fatal("expected non-empty buffer")
 	}
 }

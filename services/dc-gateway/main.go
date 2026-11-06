@@ -33,12 +33,17 @@ func getSessionSocketPath() string {
 	return "/tmp/a2m-session.sock"
 }
 
-func watchCapabilityShutdown(registry *mcp.Registry) {
+func watchCapabilityShutdown(registry *mcp.Registry, fsClient *ipc.FsEngineClient) {
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, os.Interrupt, syscall.SIGTERM)
 	go func() {
 		<-signals
-		registry.Close()
+		if fsClient != nil {
+			_ = fsClient.Close()
+		}
+		if registry != nil {
+			registry.Close()
+		}
 		os.Exit(0)
 	}()
 }
@@ -158,9 +163,12 @@ func main() {
 			authMgr := auth.NewAuthenticator(*serverToken, auth.Role(*serverRole), *requireAuth)
 			fsClient := ipc.NewFsEngineClient("")
 			defer fsClient.Close()
+			if err := fsClient.EnsureRunning(); err != nil {
+				fmt.Fprintf(os.Stderr, "[dc-gateway] Auto-starting Rust File Engine: %v\n", err)
+			}
 			registry := mcp.NewRegistry(supervisor, fsClient, cfgMgr, authMgr)
 			defer registry.Close()
-			watchCapabilityShutdown(registry)
+			watchCapabilityShutdown(registry, fsClient)
 
 			srv := multiplex.NewServer(registry, supervisor, hub, authMgr)
 			addr := fmt.Sprintf("%s:%d", *host, *port)
@@ -192,9 +200,12 @@ func main() {
 
 	fsClient := ipc.NewFsEngineClient(*socketPath)
 	defer fsClient.Close()
+	if err := fsClient.EnsureRunning(); err != nil {
+		fmt.Fprintf(os.Stderr, "[dc-gateway] Auto-starting Rust File Engine: %v\n", err)
+	}
 	registry := mcp.NewRegistry(supervisor, fsClient, cfgMgr, authMgr)
 	defer registry.Close()
-	watchCapabilityShutdown(registry)
+	watchCapabilityShutdown(registry, fsClient)
 
 	reader := bufio.NewReader(os.Stdin)
 	writer := bufio.NewWriter(os.Stdout)

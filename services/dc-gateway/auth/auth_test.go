@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -19,6 +20,20 @@ func TestAuthDisabledDefault(t *testing.T) {
 	}
 	if err := auth.AuthorizeTool("write_file"); err != nil {
 		t.Errorf("write_file should be authorized: %v", err)
+	}
+
+	st := auth.GetSessionStatus("new-session-123")
+	if !st.Authenticated || !st.MachineAccessEnabled || st.AuthRequired {
+		t.Errorf("expected session status to report authenticated and machine access enabled when auth is disabled, got %+v", st)
+	}
+	if st.StatusMessage == "" || strings.Contains(st.StatusMessage, "Authentication required") {
+		t.Errorf("status message should not require auth when disabled: %s", st.StatusMessage)
+	}
+
+	roAuth := NewAuthenticator("", RoleReadOnly, false)
+	roStatus := roAuth.GetSessionStatus("sess-ro")
+	if !strings.Contains(roStatus.StatusMessage, "read-only") {
+		t.Errorf("expected read-only in status message, got: %s", roStatus.StatusMessage)
 	}
 }
 

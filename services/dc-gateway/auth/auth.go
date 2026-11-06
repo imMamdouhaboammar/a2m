@@ -20,10 +20,14 @@ const (
 )
 
 type AuthStatus struct {
-	Enabled       bool     `json:"enabled"`
-	Authenticated bool     `json:"authenticated"`
-	Role          Role     `json:"role"`
-	AllowedTools  []string `json:"allowedTools,omitempty"`
+	Enabled              bool     `json:"enabled"`
+	AuthRequired         bool     `json:"authRequired"`
+	Authenticated        bool     `json:"authenticated"`
+	RemoteAccess         bool     `json:"remote_access"`
+	MachineAccessEnabled bool     `json:"machine_access_enabled"`
+	Role                 Role     `json:"role"`
+	AllowedTools         []string `json:"allowedTools,omitempty"`
+	StatusMessage        string   `json:"status_message,omitempty"`
 }
 
 type Authenticator struct {
@@ -277,9 +281,12 @@ func (a *Authenticator) GetSessionStatus(sessionID string) AuthStatus {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
 
-	isAuth := a.authenticated
+	var isAuth bool
 	role := a.role
-	if sessionID != "" {
+
+	if !a.enabled {
+		isAuth = true
+	} else if sessionID != "" {
 		if s, ok := a.sessions[sessionID]; ok && s != nil {
 			isAuth = s.Authenticated
 			if s.Role != "" {
@@ -288,12 +295,32 @@ func (a *Authenticator) GetSessionStatus(sessionID string) AuthStatus {
 		} else {
 			isAuth = false
 		}
+	} else {
+		isAuth = a.authenticated
+	}
+
+	var statusMsg string
+	if isAuth {
+		switch role {
+		case RoleReadOnly:
+			statusMsg = "Machine access is active under read-only role. Inspection and search tools are authorized."
+		case RoleWorkspace:
+			statusMsg = "Machine access is active under workspace role. Workspace-scoped tools and commands are authorized."
+		default:
+			statusMsg = fmt.Sprintf("Machine access is active and authorized under '%s' role.", role)
+		}
+	} else {
+		statusMsg = "Authentication required: call 'auth_login' with the access token to enable machine access."
 	}
 
 	return AuthStatus{
-		Enabled:       a.enabled,
-		Authenticated: isAuth,
-		Role:          role,
+		Enabled:              isAuth,
+		AuthRequired:         a.enabled,
+		Authenticated:        isAuth,
+		RemoteAccess:         isAuth,
+		MachineAccessEnabled: isAuth,
+		Role:                 role,
+		StatusMessage:        statusMsg,
 	}
 }
 
