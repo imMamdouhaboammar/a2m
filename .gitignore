@@ -31,7 +31,24 @@ dist/
 *.p12
 *.pfx
 *.pem
+*.cert
+*.key
 
-# UI temporary assets
+# Temporary artifacts, logs and test runs
+.playwright-mcp/
+test-results/
+playwright-report/
+blob-report/
+coverage/
+.coverage
+
+# Editor and OS noise
+.vscode/
+.idea/
+*.swp
+*~
+
+# UI temporary assets and ad-hoc root captures
 UI/*.png
 UI/*.pdf
+/*.png
