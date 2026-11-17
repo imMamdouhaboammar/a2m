@@ -167,3 +167,108 @@ Build systems operating across platforms or packaging for macOS must enforce cas
 
 ### Status
 **Resolved**
+
+---
+
+## FL-019: Static Legacy Workspace Path Fragmentation & Tunnel-Client Silent Death
+
+### Context
+OpenAI's official `tunnel-client` binary (`/opt/homebrew/bin/tunnel-client`) is launched by `a2m-gateway` via `POST /api/connect?tunnel=1` using profile definitions stored under `~/.config/tunnel-client/` (`a2m.yaml`, `a2m-2.yaml`, `desktop-commander.yaml`, `desktop-commander-2.yaml`). The tunnel configuration specifies the local MCP server executable to run over stdio.
+
+### What happened
+During repository reorganization, migration from temporary workspace branches, or directory renaming (from `/Users/.../clever-hypatia/` to `/Users/.../a2m-workspace/`), the external YAML profiles and `~/.a2m/config.json` retained hardcoded absolute paths pointing to `/Users/.../clever-hypatia/bin/desktop-commander`. When the user clicked "Connect T1" or "Connect T2" in the desktop GUI, `a2m-gateway` spawned `tunnel-client run --profile a2m`. The process immediately failed because the stdio target executable did not exist (`no such file or directory`).
+
+### Observable symptom
+The GUI briefly showed a toast notification: `Tunnel 1 connect: Disconnected. Checking state...` and remained permanently disconnected on port 8080. No explicit stack trace or error message was displayed in the UI because the gateway did not capture or surface child process stderr during the 2.5-second port readiness polling loop.
+
+### Impact
+Total failure of remote MCP AI connectivity (ChatGPT/Claude could not reach the workstation), while the local desktop UI gave deceptive feedback masking a missing filesystem binary.
+
+### Incorrect assumption
+Assumed that tunnel profile YAMLs in `~/.config/tunnel-client/` would automatically track or resolve workspace relocations, or that `tunnel-client` errors would bubble up to the HTTP response.
+
+### Root cause
+**Confirmed**. Static absolute path fragmentation across multiple decoupled configuration files (`~/.config/tunnel-client/*.yaml` and `~/.a2m/config.json`) combined with uninspected stderr on spawned tunnel daemon execution.
+
+### Fix
+1. Updated all profile YAMLs (`a2m.yaml`, `a2m-2.yaml`, `desktop-commander.yaml`, `desktop-commander-2.yaml`) and `~/.a2m/config.json` to canonical paths (`a2m-workspace/bin/a2m`).
+2. Established an automatic backward-compatible symlink: `ln -s /Users/.../a2m-workspace /Users/.../clever-hypatia`.
+3. Verified zero failures using `tunnel-client doctor --profile a2m` (`RESULT ok`).
+
+### Verification
+- Running `tunnel-client doctor --profile a2m` confirmed `CHECK mcp_command_executable PASS`.
+- Triggered `a2m connect` and confirmed port 8080 listening with status `Connected`, `ready: true`, and `/healthz` returning `live` / `/readyz` returning `ready`.
+
+### Prevention rule
+External relay daemon profiles (`tunnel-client`) must never store hardcoded absolute workspace paths without automated runtime preflight checks. Always run `tunnel-client doctor --profile <name>` before attempting daemon connections, and capture child process stderr on spawn failures.
+
+### Reusable lesson
+When wrapping external CLI orchestrators (such as OpenAI `tunnel-client`), configuration paths must either be relative to the running binary, dynamically discovered from the active gateway, or guarded by preflight executable assertions.
+
+### Related code
+`services/dc-gateway/multiplex/server.go`, `services/dc-gateway/multiplex/credentials.go`, `~/.config/tunnel-client/a2m.yaml`
+
+### Related tests
+`tunnel-client doctor --profile a2m`, `tunnel-client doctor --profile a2m-2`
+
+### Related lessons
+[`FL-009`](#fl-009), [`FL-010`](#fl-010)
+
+### Status
+**Resolved (Verified)**
+
+---
+
+## FL-020: Naive BASH_SOURCE Symlink Resolution in Distributed CLI Wrappers
+
+### Context
+A2M distributes a unified CLI wrapper script (`bin/a2m`) to invoke management commands (`a2m status`, `a2m ps`, `a2m connect`, `a2m kill`) against the local gateway, or to launch the gateway in stdio MCP mode. Users symlink `bin/a2m` into global `$PATH` locations such as `~/.local/bin/a2m` or `/usr/local/bin/a2m`.
+
+### What happened
+When a user executed `a2m status` via a symlink in `~/.local/bin/a2m`, the command failed with:
+`/Users/.../.local/bin/a2m: line 24: /Users/.../.local/bin/dc-gateway: No such file or directory`.
+
+### Observable symptom
+The CLI refused to run any subcommands outside the physical repository directory, reporting missing binaries in `~/.local/bin/`.
+
+### Impact
+CLI usability broken. Users could not monitor or manage A2M sessions from their default shell environment.
+
+### Incorrect assumption
+Assumed `SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"` is sufficient to locate sibling executables (`a2m-gateway`, `dc-gateway`), ignoring that `BASH_SOURCE[0]` evaluates to the symlink path itself rather than the target script.
+
+### Root cause
+**Confirmed**. Naive bash directory resolution. When invoked via a symlink, `BASH_SOURCE[0]` points to the symlink directory (`~/.local/bin`), causing the script to search for compiled Go binaries in `~/.local/bin/` instead of `a2m-workspace/bin/`.
+
+### Fix
+Implemented canonical, POSIX-compliant recursive symlink dereferencing in `bin/a2m`, `build.sh`, and `bin/desktop-commander-2`:
+```bash
+SOURCE="${BASH_SOURCE[0]}"
+while [ -L "$SOURCE" ]; do
+    DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
+    SOURCE="$(readlink "$SOURCE")"
+    [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE"
+done
+SCRIPT_DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
+```
+
+### Verification
+Symlinked `bin/a2m` to `~/.local/bin/a2m` and executed `a2m status` and `a2m ps` from an arbitrary directory; both commands resolved `a2m-gateway` perfectly and returned live JSON telemetry.
+
+### Prevention rule
+All shell CLI wrappers designed for global installation or symlinking must recursively dereference `BASH_SOURCE` via `readlink` before resolving sibling binary paths.
+
+### Reusable lesson
+Never rely on single-step `dirname "${BASH_SOURCE[0]}"` in scripts intended to be exposed via symlinks in user `$PATH`.
+
+### Related code
+`bin/a2m`, `build.sh`, `bin/desktop-commander-2`
+
+### Related tests
+`tests/e2e_test.sh`, manual CLI invocation via `~/.local/bin/a2m`
+
+### Related lessons
+[`FL-007`](filesystem-and-packaging.md#fl-007), [`FL-011`](#fl-011)
+
+### Status
+**Resolved (Verified)**

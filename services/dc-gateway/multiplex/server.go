@@ -23,7 +23,7 @@ import (
 
 // AppVersion reports the version compiled into the running gateway process.
 // Official builds inject VERSION via -ldflags; tests use the matching default.
-var AppVersion = "1.3.2"
+var AppVersion = "1.3.3"
 
 type sseSession struct {
 	id     string
